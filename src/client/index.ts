@@ -44,7 +44,9 @@ export function apply(ctx: ClientContext): void {
 
   const connection = ctx.get('connection') as unknown as ConnectionHandle
   const rpc = createTaskRunnerRpc(connection)
-  const settings = ctx.settingsScope.bind<TaskRunnerDialogSettings>({ namespace: 'task-runner' })
+  const settings = ctx.settingsScope.bind<TaskRunnerDialogSettings>({
+    namespace: 'task-runner',
+  })
   const getActiveLocale = (): string => ctx.locale.getLocale().active
 
   // Report the UI locale to the Host so the approval gate renders its reason
@@ -90,7 +92,10 @@ export function apply(ctx: ClientContext): void {
   // face structurally through ctx.get.
   const sessions = ctx.get('sessions') as unknown as {
     currentProvideInfo: {
-      getSnapshot(): { sessionId: string | undefined; props: Record<string, unknown> }
+      getSnapshot(): {
+        sessionId: string | undefined
+        props: Record<string, unknown>
+      }
       subscribe(listener: () => void): () => void
     }
   }

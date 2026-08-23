@@ -1,5 +1,5 @@
 /**
- * The `task_runner_config` model tool: lets the LLM list run configurations
+ * The `task_run_config` model tool: lets the LLM list run configurations
  * (with full prompts) and manage them (create/update/delete/duplicate).
  * Read operations run freely; write operations are gated by the official
  * `tools/pre-execute` approval mechanism implemented in `./approval.ts` —
@@ -70,7 +70,7 @@ export const TASK_JSON_SCHEMA = {
 export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => void {
   return ctx.tools.register(
     defineTool({
-      name: 'task_runner_config',
+      name: 'task_run_config',
       description:
         'Manage dsh-task-runner run configurations for the web run-control. ' +
         'A run configuration is a reusable launch preset: an LLM prompt sent into the current session, ' +

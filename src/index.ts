@@ -3,7 +3,7 @@
  *
  * Wires the persistent task store (storage domain), the `/task-runner`
  * Connection RPC channel (task CRUD + command runs), the `task-runner`
- * settings namespace (`toolEnabled`), and the `task_runner_config` LLM tool
+ * settings namespace (`toolEnabled`), and the `task_run_config` LLM tool
  * whose registration follows the switch dynamically.
  *
  * Run semantics: `llm` tasks run purely in the browser (standard send flow);
@@ -31,7 +31,7 @@ export const name = 'task-runner'
 
 /**
  * Hard service dependencies. `approval` is intentionally NOT here: following
- * the official pattern, write-approval for the `task_runner_config` tool is
+ * the official pattern, write-approval for the `task_run_config` tool is
  * enforced by a `tools/pre-execute` gate (registerTaskRunnerApprovalGate)
  * that consumes `sandboxPolicy`/`approval` opportunistically with `ctx.get`,
  * and the ToolRuntime resolves `ask` through the standard approval seam.

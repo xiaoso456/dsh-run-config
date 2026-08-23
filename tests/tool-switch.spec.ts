@@ -1,5 +1,5 @@
 /**
- * Integration test for the M5 switch: the `task_runner_config` tool follows
+ * Integration test for the M5 switch: the `task_run_config` tool follows
  * the `task-runner` settings namespace's `toolEnabled` flag — registered by
  * default, unregistered when the switch turns off, re-registered when it
  * turns back on (no reload).
@@ -53,7 +53,7 @@ const tick = () =>
     setTimeout(resolve, 0)
   })
 
-describe('task_runner_config tool switch', () => {
+describe('task_run_config tool switch', () => {
   it('registers by default, unregisters when toolEnabled=false, re-registers on true', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
@@ -74,19 +74,23 @@ describe('task_runner_config tool switch', () => {
     await tick()
 
     // Default on: the tool is visible.
-    expect(ctx.tools.get('task_runner_config')).toBeDefined()
+    expect(ctx.tools.get('task_run_config')).toBeDefined()
 
     // Switch off: the tool disappears.
-    await ctx.settings.update(settingsNamespace('task-runner'), { toolEnabled: false })
+    await ctx.settings.update(settingsNamespace('task-runner'), {
+      toolEnabled: false,
+    })
     await tick()
     await tick()
-    expect(ctx.tools.get('task_runner_config')).toBeUndefined()
+    expect(ctx.tools.get('task_run_config')).toBeUndefined()
 
     // Switch back on: the tool returns.
-    await ctx.settings.update(settingsNamespace('task-runner'), { toolEnabled: true })
+    await ctx.settings.update(settingsNamespace('task-runner'), {
+      toolEnabled: true,
+    })
     await tick()
     await tick()
-    expect(ctx.tools.get('task_runner_config')).toBeDefined()
+    expect(ctx.tools.get('task_run_config')).toBeDefined()
   })
 
   it('keeps the tool registered when no settings provider is mounted', async () => {
@@ -107,7 +111,7 @@ describe('task_runner_config tool switch', () => {
     installTaskRunnerSettings(ctx, syncTool)
     await tick()
 
-    expect(ctx.tools.get('task_runner_config')).toBeDefined()
+    expect(ctx.tools.get('task_run_config')).toBeDefined()
     expect(TaskRunnerSettingsSchema).toBeDefined()
     expect(DEFAULT_TASK_RUNNER_SETTINGS.toolEnabled).toBe(true)
   })

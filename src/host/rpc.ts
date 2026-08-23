@@ -91,7 +91,9 @@ async function dispatch(
     case 'tasks/update': {
       const input = requireObject(payload)
       const id = requireString(input, 'id', 'update requires id')
-      return ok({ task: await store.update(id, stripUndefined(input.patch) as TaskPatch) })
+      return ok({
+        task: await store.update(id, stripUndefined(input.patch) as TaskPatch),
+      })
     }
     case 'tasks/delete': {
       const input = requireObject(payload)

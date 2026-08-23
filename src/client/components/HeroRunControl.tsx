@@ -217,7 +217,11 @@ export function HeroRunControl({
     const currentTasks = visible.filter((task) => task.scope !== 'global')
     const globalTasks = visible.filter((task) => task.scope === 'global')
     if (currentTasks.length > 0) {
-      out.push({ type: 'label', id: 'label-workspace', text: t('groupWorkspace') })
+      out.push({
+        type: 'label',
+        id: 'label-workspace',
+        text: t('groupWorkspace'),
+      })
       for (const task of currentTasks) out.push(entry(task))
     }
     if (globalTasks.length > 0) {

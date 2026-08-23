@@ -1,5 +1,5 @@
 /**
- * D20: official-pattern approval gate for `task_runner_config` write
+ * D20: official-pattern approval gate for `task_run_config` write
  * actions. `decideTaskRunnerApproval` is the pure decision (unit-tested
  * exhaustively); `registerTaskRunnerApprovalGate` wires it into the
  * `tools/pre-execute` waterfall, which the ToolRuntime resolves through the
@@ -42,16 +42,16 @@ describe('decideTaskRunnerApproval (pure)', () => {
 
   it('ignores the read-only list action', () => {
     expect(
-      decideTaskRunnerApproval('task_runner_config', 'list', {} as never, 'workspace-write'),
+      decideTaskRunnerApproval('task_run_config', 'list', {} as never, 'workspace-write'),
     ).toBeUndefined()
     expect(
-      decideTaskRunnerApproval('task_runner_config', 'list', {} as never, 'danger-full-access'),
+      decideTaskRunnerApproval('task_run_config', 'list', {} as never, 'danger-full-access'),
     ).toBeUndefined()
   })
 
   it('asks for create under workspace-write with a descriptive reason', () => {
     const decision = decideTaskRunnerApproval(
-      'task_runner_config',
+      'task_run_config',
       'create',
       {
         action: 'create',
@@ -70,7 +70,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
   it('asks for update/delete/duplicate', () => {
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'update',
         { action: 'update', id: 't-1' },
         'workspace-write',
@@ -81,7 +81,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
     })
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'delete',
         { action: 'delete', id: 't-1' },
         'workspace-write',
@@ -92,7 +92,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
     })
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'duplicate',
         { action: 'duplicate', id: 't-1' },
         'workspace-write',
@@ -106,7 +106,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
   it('asks under read-only mode', () => {
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'create',
         { action: 'create' } as never,
         'read-only',
@@ -118,7 +118,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
 
   it('renders the reason in zh when the locale is zh', () => {
     const decision = decideTaskRunnerApproval(
-      'task_runner_config',
+      'task_run_config',
       'create',
       {
         action: 'create',
@@ -138,7 +138,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
   it('allows without approval under danger-full-access', () => {
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'create',
         { action: 'create' } as never,
         'danger-full-access',
@@ -148,7 +148,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
     })
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'delete',
         { action: 'delete', id: 'x' },
         'danger-full-access',
@@ -161,7 +161,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
   it('fails closed to ask when the sandbox mode is unknown (no policy service)', () => {
     expect(
       decideTaskRunnerApproval(
-        'task_runner_config',
+        'task_run_config',
         'create',
         { action: 'create' } as never,
         undefined,
@@ -190,7 +190,7 @@ describe('registerTaskRunnerApprovalGate (waterfall wiring)', () => {
     registerTaskRunnerApprovalGate(ctx)
     const decision = await ctx.waterfall(
       'tools/pre-execute',
-      makeExec('task_runner_config', { action: 'create', name: 'x' }),
+      makeExec('task_run_config', { action: 'create', name: 'x' }),
       async () => ({ kind: 'allow' as const }),
     )
     expect(decision).toMatchObject({ kind: 'ask' })
@@ -204,7 +204,7 @@ describe('registerTaskRunnerApprovalGate (waterfall wiring)', () => {
     registerTaskRunnerApprovalGate(ctx)
     const decision = await ctx.waterfall(
       'tools/pre-execute',
-      makeExec('task_runner_config', { action: 'create', name: 'x' }),
+      makeExec('task_run_config', { action: 'create', name: 'x' }),
       async () => ({ kind: 'allow' as const }),
     )
     expect(decision).toEqual({ kind: 'allow' })
@@ -215,7 +215,7 @@ describe('registerTaskRunnerApprovalGate (waterfall wiring)', () => {
     registerTaskRunnerApprovalGate(ctx)
     const listDecision = await ctx.waterfall(
       'tools/pre-execute',
-      makeExec('task_runner_config', { action: 'list' }),
+      makeExec('task_run_config', { action: 'list' }),
       async () => ({ kind: 'allow' as const }),
     )
     expect(listDecision).toEqual({ kind: 'allow' })

@@ -25,25 +25,43 @@ function record(id: string, name: string): TaskRecord {
 describe('validateTaskInput', () => {
   it('rejects an empty name', async () => {
     await expect(
-      validateTaskInput({ name: '  ', type: 'llm', scope: 'global', llmPrompt: 'p' }),
+      validateTaskInput({
+        name: '  ',
+        type: 'llm',
+        scope: 'global',
+        llmPrompt: 'p',
+      }),
     ).rejects.toThrow('task name must not be empty')
   })
 
   // Draft-friendly: the dialog creates an empty llm/command draft (IDEA
   // style) and fills it later; run-time guards reject empty prompts/commands.
   it('allows an empty llmPrompt draft for llm tasks', async () => {
-    const input = await validateTaskInput({ name: 't', type: 'llm', scope: 'global' })
+    const input = await validateTaskInput({
+      name: 't',
+      type: 'llm',
+      scope: 'global',
+    })
     expect(input.llmPrompt).toBeUndefined()
   })
 
   it('allows an empty command draft for command tasks', async () => {
-    const input = await validateTaskInput({ name: 't', type: 'command', scope: 'global' })
+    const input = await validateTaskInput({
+      name: 't',
+      type: 'command',
+      scope: 'global',
+    })
     expect(input.command).toBeUndefined()
   })
 
   it('requires workspacePath for workspace scope', async () => {
     await expect(
-      validateTaskInput({ name: 't', type: 'llm', scope: 'workspace', llmPrompt: 'p' }),
+      validateTaskInput({
+        name: 't',
+        type: 'llm',
+        scope: 'workspace',
+        llmPrompt: 'p',
+      }),
     ).rejects.toThrow('workspace-scoped tasks require a workspacePath')
   })
 

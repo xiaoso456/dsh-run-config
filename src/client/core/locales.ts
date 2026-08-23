@@ -109,7 +109,7 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   deleteConfirmYes: '删除',
   deleteConfirmNo: '取消',
   exposeToolToLlm: '暴露任务配置管理工具给 LLM',
-  exposeToolToLlmHint: '开启后，LLM 可通过 task_runner_config 工具查看和修改任务运行配置',
+  exposeToolToLlmHint: '开启后，LLM 可通过 task_run_config 工具查看和修改任务运行配置',
   saveFailed: '保存失败：{message}',
   emptyList: '暂无任务配置',
   emptyListHint: '点击上方 + 新建任务配置',
@@ -164,7 +164,7 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   deleteConfirmNo: 'Cancel',
   exposeToolToLlm: 'Expose the configuration tool to the LLM',
   exposeToolToLlmHint:
-    'When on, the LLM can list and manage run configurations via the task_runner_config tool',
+    'When on, the LLM can list and manage run configurations via the task_run_config tool',
   saveFailed: 'Save failed: {message}',
   emptyList: 'No configurations yet',
   emptyListHint: 'Click + above to create a configuration',

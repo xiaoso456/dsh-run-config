@@ -78,7 +78,19 @@ export function RunControl({
   })
 
   const visible = useMemo(() => snap.tasks ?? [], [snap.tasks])
-  const selected = visible.find((task) => task.id === snap.selectedId) ?? visible[0]
+
+  const globalTasks = visible.filter((task) => task.scope === 'global')
+  const currentTasks = visible.filter(
+    (task) => task.scope !== 'global' && task.workspacePath === cwd,
+  )
+
+  // The selection must come from the VISIBLE tasks (current workspace first,
+  // then global) — the shared store's selectedId may point at another
+  // workspace's task (it is global across workspaces), and visible[0] may be
+  // one too. Falling back to the first visible task keeps the run control on
+  // the current workspace's configurations.
+  const visibleTasks = [...currentTasks, ...globalTasks]
+  const selected = visibleTasks.find((task) => task.id === snap.selectedId) ?? visibleTasks[0]
 
   const runTask = (task: TaskView | undefined): void => {
     if (task === undefined || busy) return
@@ -100,7 +112,9 @@ export function RunControl({
       })
       .catch((error) => {
         showToast(
-          t('runFailed', { message: String(error instanceof Error ? error.message : error) }),
+          t('runFailed', {
+            message: String(error instanceof Error ? error.message : error),
+          }),
           <IconWarningOutline16 size={14} />,
         )
       })
@@ -118,11 +132,6 @@ export function RunControl({
     if (task !== undefined) runTask(task)
   }, [snap.pendingRunId, visible, inputActions, sessionId])
 
-  const globalTasks = visible.filter((task) => task.scope === 'global')
-  const currentTasks = visible.filter(
-    (task) => task.scope !== 'global' && task.workspacePath === cwd,
-  )
-
   // Menu entries: the header picker shows only the CURRENT workspace and
   // GLOBAL tasks (the run button acts on this session; every other
   // workspace's tasks live in the run-config dialog, which lists all of
@@ -130,7 +139,11 @@ export function RunControl({
   const items: MenuEntry[] = useMemo(() => {
     const out: MenuEntry[] = []
     if (currentTasks.length > 0) {
-      out.push({ type: 'label', id: 'label-workspace', text: t('groupWorkspace') })
+      out.push({
+        type: 'label',
+        id: 'label-workspace',
+        text: t('groupWorkspace'),
+      })
       for (const task of currentTasks) out.push(menuEntry(task))
     }
     if (globalTasks.length > 0) {
@@ -184,7 +197,7 @@ export function RunControl({
         runTooltipDisabled={busy}
         runAriaLabel={t('run')}
         onPick={() => {
-          // Refresh on open: the LLM tool (task_runner_config) can mutate
+          // Refresh on open: the LLM tool (task_run_config) can mutate
           // tasks on the host without any client signal, so the picker must
           // re-pull before showing (bump → useTaskLoader reloads).
           if (!open) taskRunnerStore.bumpRevision()

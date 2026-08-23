@@ -24,7 +24,7 @@ const { defineTool, validateJsonSchemaValue } = await import(dshToolsUrl)
 /** Compile an output spec exactly like defineTool does at registration. */
 function compileOutputSpec(schema) {
   const tool = defineTool({
-    name: 'verify_task_runner_config',
+    name: 'verify_task_run_config',
     description: 'verification stub',
     parameters: { action: { type: 'string', required: true } },
     output: {

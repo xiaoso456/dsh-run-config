@@ -1,6 +1,6 @@
 /**
  * Settings surface for dsh-task-runner: the `task-runner` namespace holds the
- * `toolEnabled` switch that controls whether the `task_runner_config` LLM tool
+ * `toolEnabled` switch that controls whether the `task_run_config` LLM tool
  * is registered (default on). Uses the official optional-settings wiring so a
  * committed change applies without a reload and the plugin keeps working when
  * no settings provider is mounted.
@@ -25,7 +25,9 @@ export const TaskRunnerSettingsSchema: z<TaskRunnerSettings> = z.object({
 })
 
 /** Defaults used while no settings provider is mounted. */
-export const DEFAULT_TASK_RUNNER_SETTINGS: TaskRunnerSettings = { toolEnabled: true }
+export const DEFAULT_TASK_RUNNER_SETTINGS: TaskRunnerSettings = {
+  toolEnabled: true,
+}
 
 /**
  * Install the optional-settings consumer wiring. `onToolEnabled` fires with

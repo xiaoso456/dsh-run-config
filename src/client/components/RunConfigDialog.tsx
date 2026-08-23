@@ -209,7 +209,11 @@ export function RunConfigDialog({
 
   const createTask = (): void => {
     void rpc
-      .call('tasks/create', { name: t('newTaskName'), type: 'llm', scope: 'global' })
+      .call('tasks/create', {
+        name: t('newTaskName'),
+        type: 'llm',
+        scope: 'global',
+      })
       .then((res) => {
         refresh()
         select(res.task.id)
@@ -731,7 +735,10 @@ function SegmentGroup({
   ariaLabel: string
 }) {
   const groupRef = useRef<HTMLDivElement>(null)
-  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null)
+  const [indicator, setIndicator] = useState<{
+    left: number
+    width: number
+  } | null>(null)
 
   // Measure the active segment and slide the indicator to it. Runs on mount
   // and whenever the value changes (type / scope switches).
@@ -753,7 +760,10 @@ function SegmentGroup({
       {indicator !== null ? (
         <span
           className={css.segmentIndicator}
-          style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+          style={{
+            transform: `translateX(${indicator.left}px)`,
+            width: indicator.width,
+          }}
           aria-hidden="true"
         />
       ) : null}

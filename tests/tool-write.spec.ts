@@ -52,11 +52,11 @@ async function mountTool(): Promise<{ tool: ToolLike; records: TaskRecord[] }> {
   await ctx.plugin(ToolRuntime)
   const { store, records } = fakeStore()
   registerTaskRunnerTool(ctx, store)
-  const tool = ctx.tools.get('task_runner_config') as unknown as ToolLike
+  const tool = ctx.tools.get('task_run_config') as unknown as ToolLike
   return { tool, records }
 }
 
-describe('task_runner_config execute body', () => {
+describe('task_run_config execute body', () => {
   it('list runs freely and returns the store tasks', async () => {
     const { tool } = await mountTool()
     const result = await tool.execute({ action: 'list' })

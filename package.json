@@ -1,7 +1,7 @@
 {
   "name": "@xiaoso/dsh-task-runner",
   "version": "0.1.0",
-  "description": "VS Code / IDEA-style run control for the DeepSeek Harness web GUI: run buttons, run configurations (llm prompt / background command tasks), task CRUD, and an LLM-exposed task management tool",
+  "description": "VS Code / IDEA-style run control for the DeepSeek Harness web GUI: run buttons, task run configurations (LLM prompt / background command), configuration CRUD, and an LLM-exposed configuration tool with an on-demand usage skill",
   "type": "module",
   "license": "MIT",
   "author": "xiaoso",

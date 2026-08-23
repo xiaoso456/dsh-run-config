@@ -45,9 +45,9 @@ async function rpc(method, payload) {
 async function main() {
   console.error('[hero-llm] opening CDP target...')
   await closeAllTabs()
-  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, { method: 'PUT' }).then((r) =>
-    r.json(),
-  )
+  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, {
+    method: 'PUT',
+  }).then((r) => r.json())
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.onopen = resolve
@@ -179,8 +179,16 @@ async function main() {
     }
   })()`)
   // Close the menu.
-  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
-  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' })
+  await send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Escape',
+    code: 'Escape',
+  })
+  await send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Escape',
+    code: 'Escape',
+  })
   await sleep(400)
 
   const all = await rpc('tasks/list', {})
@@ -250,9 +258,9 @@ async function main() {
 
   console.log('=== HERO LLM-ONLY ===')
   console.log(JSON.stringify(results, null, 2))
-  console.log('=== CONSOLE ERRORS (' + consoleErrors.length + ') ===')
+  console.log(`=== CONSOLE ERRORS (${consoleErrors.length}) ===`)
   for (const e of consoleErrors.slice(0, 10)) console.log(' -', e.slice(0, 300))
-  console.log('=== CONSOLE LOGS (' + consoleLogs.length + ') ===')
+  console.log(`=== CONSOLE LOGS (${consoleLogs.length}) ===`)
   for (const l of consoleLogs.slice(0, 10)) console.log(' -', l.slice(0, 200))
 
   ws.close()

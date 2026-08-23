@@ -47,9 +47,9 @@ async function closeAllTabs() {
 async function main() {
   console.error('[refresh] opening CDP target...')
   await closeAllTabs()
-  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, { method: 'PUT' }).then((r) =>
-    r.json(),
-  )
+  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, {
+    method: 'PUT',
+  }).then((r) => r.json())
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.onopen = resolve
@@ -172,7 +172,7 @@ async function main() {
 
   console.log('=== V21 REFRESH-ON-OPEN ===')
   console.log(JSON.stringify(results, null, 2))
-  console.log('=== CONSOLE ERRORS (' + consoleErrors.length + ') ===')
+  console.log(`=== CONSOLE ERRORS (${consoleErrors.length}) ===`)
   for (const e of consoleErrors.slice(0, 10)) console.log(' -', e.slice(0, 300))
 
   // Cleanup: delete the probe task through the RPC.

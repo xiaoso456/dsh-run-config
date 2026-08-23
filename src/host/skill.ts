@@ -1,6 +1,6 @@
 /**
  * The `run-configuration` skill: the detailed usage guide for the
- * `task_runner_config` tool. The tool's own description stays lean (concept,
+ * `task_run_config` tool. The tool's own description stays lean (concept,
  * trigger, defaults); the full parameter reference, decision rules, and
  * examples live here and are loaded on demand through the official skill
  * mechanism (catalog summary injected, content fetched when the model asks).
@@ -20,7 +20,7 @@ const DESCRIPTION =
 /** When the model should load this skill. */
 const WHEN_TO_USE =
   'When the user asks to save, remember, or reuse an operation as a run ' +
-  'configuration, or when task_runner_config usage details are needed.'
+  'configuration, or when task_run_config usage details are needed.'
 
 /** The full usage guide, loaded on demand. */
 const CONTENT = `# Run configurations (dsh-task-runner)
@@ -28,7 +28,7 @@ const CONTENT = `# Run configurations (dsh-task-runner)
 A run configuration is a reusable launch preset for the web run-control:
 either an LLM prompt sent into the current session, or a shell command run in
 the background. The user launches a configuration from the web UI (session
-header or new-session page); the task_runner_config tool only manages the
+header or new-session page); the task_run_config tool only manages the
 stored configurations.
 
 ## When to create vs reuse

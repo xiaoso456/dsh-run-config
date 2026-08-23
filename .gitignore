@@ -5,4 +5,6 @@ dist/
 .DS_Store
 .dsh-meow/
 tests/screenshots/
-docs/
+# Internal docs stay local; the README screenshot folder is published.
+docs/*
+!docs/images/

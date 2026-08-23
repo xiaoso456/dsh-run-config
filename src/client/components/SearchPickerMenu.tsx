@@ -118,7 +118,10 @@ export function SearchPickerMenu({
 }: SearchPickerMenuProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
-  const [fixedPos, setFixedPos] = useState<{ left: number; top: number } | null>(null)
+  const [fixedPos, setFixedPos] = useState<{
+    left: number
+    top: number
+  } | null>(null)
   const [maxHeight, setMaxHeight] = useState<number>(400)
   const [width, setWidth] = useState<number | undefined>(undefined)
   const [maxWidth, setMaxWidth] = useState<number | undefined>(undefined)

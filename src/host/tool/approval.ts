@@ -1,5 +1,5 @@
 /**
- * Approval gate for the `task_runner_config` tool, following the official
+ * Approval gate for the `task_run_config` tool, following the official
  * `tools/pre-execute` pattern: a guard returning `{ kind: 'ask' }` makes the
  * ToolRuntime resolve the decision through the standard approval seam
  * (`serviceAsk` → `approval.request`), while `{ kind: 'allow' }` skips
@@ -72,7 +72,7 @@ function writeApprovalReason(
 }
 
 /**
- * Official-pattern approval decision for `task_runner_config` (pure,
+ * Official-pattern approval decision for `task_run_config` (pure,
  * unit-testable). Per the official permission-presets semantics, a session
  * with `danger-full-access` sandbox mode needs no approval for write
  * actions — the sandbox mode is the deployment's policy; the tool itself
@@ -89,7 +89,7 @@ export function decideTaskRunnerApproval(
   mode: string | undefined,
   locale: 'zh' | 'en' = 'en',
 ): TaskRunnerGateDecision | undefined {
-  if (execName !== 'task_runner_config') return undefined
+  if (execName !== 'task_run_config') return undefined
   if (typeof action !== 'string' || !WRITE_ACTIONS.includes(action as TaskRunnerAction)) {
     return undefined
   }
@@ -99,7 +99,7 @@ export function decideTaskRunnerApproval(
 }
 
 /**
- * Register the official-pattern approval gate for `task_runner_config`
+ * Register the official-pattern approval gate for `task_run_config`
  * write actions on `tools/pre-execute` (returns the exact disposer).
  *
  * The gate resolves the session's sandbox mode through the optional

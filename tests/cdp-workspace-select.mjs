@@ -1,10 +1,16 @@
 /**
- * Skill verify: the `run-configuration` skill must appear in the session's
- * skill catalog (context injection) after the plugin boots. Sequence:
- *  1. load the page; enter a session through the sidebar session list;
- *  2. assert the page text contains the skill name and its catalog summary. */
+ * Workspace-scoped selection verify: entering a workspace session must show
+ * the CURRENT workspace's configurations (then global) — never another
+ * workspace's. We create a foreign-workspace task via RPC, enter a session,
+ * and assert the RunCombo picker text and the dropdown both exclude it.
+ * Sequence:
+ *  1. load the page, enter a session via the sidebar;
+ *  2. create a foreign-workspace task (path that matches no workspace);
+ *  3. assert the picker shows a visible task (current-workspace or global),
+ *     and neither the picker text nor the dropdown contains the foreign task. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
 const BASE = 'http://127.0.0.1:3190'
+const FOREIGN_NAME = `外部工作区-${Date.now().toString(36)}`
 
 async function closeAllTabs() {
   try {
@@ -17,11 +23,28 @@ async function closeAllTabs() {
   }
 }
 
+async function rpc(method, payload) {
+  const res = await fetch(`${BASE}/task-runner/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'client-request',
+      rpcId: `ws-${Date.now()}`,
+      method,
+      payload,
+    }),
+  })
+  const body = await res.json()
+  if (body.result?.ok !== true) throw new Error(`${method} failed: ${JSON.stringify(body)}`)
+  return body.result.value
+}
+
 async function main() {
+  console.error('[ws-select] opening CDP target...')
   await closeAllTabs()
-  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, {
-    method: 'PUT',
-  }).then((r) => r.json())
+  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, { method: 'PUT' }).then((r) =>
+    r.json(),
+  )
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.onopen = resolve
@@ -111,36 +134,65 @@ async function main() {
       }
     }
   }
+  if (!inSession) process.exit(1)
 
-  const results = { booted, inSession }
-  if (inSession) {
-    // The skill catalog is injected into the session context; the UI renders
-    // it in the context-injection panel. Search the whole page text.
-    results.catalog = await evaluate(`(() => {
-      const text = document.body.innerText
-      return {
-        hasSkillName: text.includes('run-configuration'),
-        hasSummary: text.includes('How to use dsh-task-runner run configurations'),
-        snippet: text.split('\\n').find(l => l.includes('run-configuration')) ?? '',
-      }
-    })()`)
+  // Create a foreign-workspace task (path matches no real workspace).
+  const created = await rpc('tasks/create', {
+    name: FOREIGN_NAME,
+    type: 'llm',
+    scope: 'workspace',
+    workspacePath: 'D:\\__no_such_workspace__',
+    llmPrompt: 'hello',
+  })
+  const taskId = created.task.id
+
+  // The picker must NOT show the foreign task.
+  const pickText = await evaluate(`(() => {
+    const run = document.querySelector('[aria-label="运行"]')
+    const pick = run?.parentElement?.querySelector('[aria-expanded]')
+    return pick ? pick.innerText : null
+  })()`)
+
+  // Open the dropdown and check its rows too.
+  await evaluate(`(() => {
+    const run = document.querySelector('[aria-label="运行"]')
+    const pick = run?.parentElement?.querySelector('[aria-expanded]')
+    if (pick) pick.click()
+    return true
+  })()`)
+  await sleep(800)
+  const menuText = await evaluate(`(() => {
+    const menu = [...document.querySelectorAll('[role="menu"]')].pop()
+    return menu ? menu.innerText : ''
+  })()`)
+
+  const results = {
+    booted,
+    inSession,
+    foreignName: FOREIGN_NAME,
+    pickText,
+    pickShowsForeign: pickText?.includes(FOREIGN_NAME) ?? false,
+    menuShowsForeign: menuText.includes(FOREIGN_NAME),
   }
 
-  console.log('=== SKILL CATALOG ===')
+  // Cleanup.
+  await rpc('tasks/delete', { id: taskId })
+
+  console.log('=== WORKSPACE SELECTION ===')
   console.log(JSON.stringify(results, null, 2))
-  console.log(`=== CONSOLE ERRORS (${consoleErrors.length}) ===`)
+  console.log('=== CONSOLE ERRORS (' + consoleErrors.length + ') ===')
   for (const e of consoleErrors.slice(0, 10)) console.log(' -', e.slice(0, 300))
 
   ws.close()
   const pass =
     results.inSession === true &&
-    results.catalog?.hasSkillName === true &&
-    results.catalog?.hasSummary === true &&
+    results.pickShowsForeign === false &&
+    results.menuShowsForeign === false &&
     consoleErrors.length === 0
   process.exit(pass ? 0 : 1)
 }
 
 main().catch((error) => {
-  console.error('skill check failed:', error)
+  console.error('ws-select check failed:', error)
   process.exit(1)
 })

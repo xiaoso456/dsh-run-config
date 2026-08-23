@@ -21,9 +21,9 @@ async function closeAllTabs() {
 
 async function main() {
   await closeAllTabs()
-  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, { method: 'PUT' }).then((r) =>
-    r.json(),
-  )
+  const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, {
+    method: 'PUT',
+  }).then((r) => r.json())
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.onopen = resolve
@@ -45,7 +45,10 @@ async function main() {
       ws.send(JSON.stringify({ id, method, params }))
     })
   const evaluate = async (expression) => {
-    const res = await send('Runtime.evaluate', { expression, returnByValue: true })
+    const res = await send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+    })
     return res.result?.result?.value
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

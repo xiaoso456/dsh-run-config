@@ -1,6 +1,6 @@
 /**
  * Regression test for the tool output schema: the harness validates every
- * `task_runner_config` result against `TASK_JSON_SCHEMA` with
+ * `task_run_config` result against `TASK_JSON_SCHEMA` with
  * `additionalProperties: false`, so EVERY field of a TaskRecord must be
  * declared there. This guards the class of bug where a new record field
  * (e.g. `description`, D17) is added to the store/client but forgotten in

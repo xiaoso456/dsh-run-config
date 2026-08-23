@@ -26,12 +26,18 @@ function stubAgent(ctx: Context, rawId: string): Agent {
     id,
     options: {},
     session,
-    inbox: new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} }),
+    inbox: new Inbox(session, {
+      inserted: () => {},
+      discarded: () => {},
+      claimed: () => {},
+    }),
     status: 'idle' as const,
     ctx: scopeFiber.ctx,
     send: () => {},
     followup,
-    steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
+    steer: () => ({
+      outcome: Promise.resolve({ status: 'rejected' as const }),
+    }),
     inject,
     cancel() {},
     runMaintenance: <T>(job: (signal: AbortSignal) => Promise<T>) =>
@@ -103,7 +109,10 @@ describe('runCommandTask', () => {
     // command to the TASK's workspace (the bug that made `echo ok > marker`
     // fail with exit 1 when the server's cwd was not the task workspace).
     ctx.provide('sandboxPolicy', {
-      resolve: () => ({ mode: 'workspace-write' as const, workspaceRoot: 'D:\\deploy' }),
+      resolve: () => ({
+        mode: 'workspace-write' as const,
+        workspaceRoot: 'D:\\deploy',
+      }),
     })
 
     shellRequests.length = 0

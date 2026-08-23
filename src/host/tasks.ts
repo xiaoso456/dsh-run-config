@@ -273,7 +273,9 @@ export class TaskStore {
   private async removeOrder(id: TaskId): Promise<void> {
     const order = this.global.get().taskOrder
     if (!order.includes(id)) return
-    await this.global.set({ taskOrder: order.filter((candidate) => candidate !== id) })
+    await this.global.set({
+      taskOrder: order.filter((candidate) => candidate !== id),
+    })
   }
 }
 
