@@ -55,7 +55,16 @@ export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise
       toolDisposer = registerTaskRunnerTool(ctx, store)
       // Official-pattern write-approval gate (full access → allow, else ask).
       gateDisposer = registerTaskRunnerApprovalGate(ctx)
-      skillDisposer = registerRunConfigurationSkill(ctx)
+      // The skill is a usage guide for the tool — never let its registration
+      // failure take down the plugin (tool + gate are already registered).
+      try {
+        skillDisposer = registerRunConfigurationSkill(ctx)
+      } catch (error) {
+        ctx.logger.warn(
+          `[task-runner] run-configuration skill registration failed: ${String(error)}`,
+        )
+        skillDisposer = undefined
+      }
     } else if (!enabled && toolDisposer !== undefined) {
       toolDisposer()
       toolDisposer = undefined
