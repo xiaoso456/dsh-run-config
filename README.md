@@ -4,9 +4,7 @@
 
 DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM 提示词和 Shell 命令保存为"任务运行配置"，在会话页和新会话页一键运行。
 
-![任务运行控制](docs/images/hero.png)
-
-
+![image-20260823222328727](docs/images/hero.png)
 
 ## 功能特性
 
@@ -17,7 +15,7 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 - **新会话页运行控制**：未进入会话时也能选择并运行任务配置
 - **LLM 集成**：大模型可通过 `task_run_config` 工具查看和管理运行配置（写操作走标准审批流程），详细用法通过 `run-configuration` skill 按需加载
 
-![运行配置对话框](docs/images/dialog.png)
+![image-20260823222318093](docs/images/dialog.png)
 
 ## 使用示例
 
@@ -27,8 +25,7 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 
 大模型会调用 `task_run_config` 工具创建命令任务配置（写操作会弹出审批确认），创建后即可在会话头部选择并一键运行。
 
-<!-- TODO: 截图（建议：会话中 LLM 创建命令配置的对话 + 审批弹窗） -->
-![LLM 创建任务配置](docs/images/llm-create.png)
+![image-20260823222125260](docs/images/llm-create.png)
 
 ## 安装
 
