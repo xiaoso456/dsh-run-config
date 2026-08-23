@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { TaskRecord } from '../src/host/tasks.ts'
-import { TASK_JSON_SCHEMA } from '../src/host/tool.ts'
+import { TASK_JSON_SCHEMA } from '../src/host/tool/tool.ts'
 
 /** A maximal record: every optional field present (the worst case for output). */
 function fullRecord(): TaskRecord {

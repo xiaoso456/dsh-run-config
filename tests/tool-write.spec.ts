@@ -10,7 +10,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { describe, expect, it } from 'vitest'
 import type { TaskCreateInput, TaskRecord, TaskStore, TaskView } from '../src/host/tasks.ts'
-import { registerTaskRunnerTool } from '../src/host/tool.ts'
+import { registerTaskRunnerTool } from '../src/host/tool/tool.ts'
 
 /** In-memory TaskStore with an observable record list. */
 function fakeStore(): { store: TaskStore; records: TaskRecord[] } {

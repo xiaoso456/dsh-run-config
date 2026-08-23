@@ -14,7 +14,7 @@
  *   node --experimental-strip-types tests/verify-tool-schema.mjs
  */
 import { pathToFileURL } from 'node:url'
-import { TASK_JSON_SCHEMA } from '../src/host/tool.ts'
+import { TASK_JSON_SCHEMA } from '../src/host/tool/tool.ts'
 
 const dshToolsUrl = pathToFileURL(
   'D:/program/nvm/v22.23.2/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools/lib/index.js',

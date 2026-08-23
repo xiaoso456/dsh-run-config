@@ -21,7 +21,8 @@ import type {} from '@deepseek-ai/dsh-tools'
 import { registerTaskRunnerRpc } from './host/rpc.ts'
 import { installTaskRunnerSettings } from './host/settings.ts'
 import { openTaskStore, type TaskStore } from './host/tasks.ts'
-import { registerTaskRunnerApprovalGate, registerTaskRunnerTool } from './host/tool.ts'
+import { registerTaskRunnerApprovalGate } from './host/tool/approval.ts'
+import { registerTaskRunnerTool } from './host/tool/tool.ts'
 
 /** Host plugin name (also the profile patch row id). */
 export const name = 'task-runner'

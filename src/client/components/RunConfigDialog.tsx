@@ -31,12 +31,12 @@ import {
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DragEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { NS } from './locales.ts'
+import type { NS } from '../core/locales.ts'
+import type { TaskRunnerRpc } from '../core/rpc.ts'
+import { taskRunnerStore } from '../core/store.ts'
+import type { TaskScope, TaskType, TaskView } from '../core/types.ts'
 import css from './RunConfigDialog.module.css'
-import type { TaskRunnerRpc } from './rpc.ts'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
-import { taskRunnerStore } from './store.ts'
-import type { TaskScope, TaskType, TaskView } from './types.ts'
 
 /** Settings shape the dialog's switch writes. */
 export interface TaskRunnerDialogSettings {

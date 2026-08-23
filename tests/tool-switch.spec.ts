@@ -20,7 +20,7 @@ import {
   TaskRunnerSettingsSchema,
 } from '../src/host/settings.ts'
 import type { TaskStore } from '../src/host/tasks.ts'
-import { registerTaskRunnerTool } from '../src/host/tool.ts'
+import { registerTaskRunnerTool } from '../src/host/tool/tool.ts'
 
 /** A minimal settings provider implementing the three primitives. */
 class BareProvider extends SettingsProvider {

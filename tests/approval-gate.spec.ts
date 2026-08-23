@@ -9,7 +9,10 @@
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { decideTaskRunnerApproval, registerTaskRunnerApprovalGate } from '../src/host/tool.ts'
+import {
+  decideTaskRunnerApproval,
+  registerTaskRunnerApprovalGate,
+} from '../src/host/tool/approval.ts'
 
 /** Minimal `sandboxPolicy` service standing in for dsh-sandbox-policy. */
 class FakeSandboxPolicy extends Service {

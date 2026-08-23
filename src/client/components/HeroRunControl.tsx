@@ -25,13 +25,13 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import type { NS } from '../core/locales.ts'
+import type { TaskRunnerRpc } from '../core/rpc.ts'
+import { taskRunnerStore } from '../core/store.ts'
+import { useTaskLoader } from '../core/useTaskLoader.ts'
+import { useToast } from '../core/useToast.tsx'
 import css from './HeroRunControl.module.css'
-import type { NS } from './locales.ts'
-import type { TaskRunnerRpc } from './rpc.ts'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
-import { taskRunnerStore } from './store.ts'
-import { useTaskLoader } from './useTaskLoader.ts'
-import { useToast } from './useToast.tsx'
 
 /** Injected business face supplied by the client entry. */
 export interface HeroRunControlInjected {

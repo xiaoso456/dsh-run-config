@@ -22,15 +22,15 @@ import {
   type HeroInputActions,
   HeroRunControl,
   type HeroRunControlInjected,
-} from './HeroRunControl.tsx'
-import { en, NS, zh } from './locales.ts'
+} from './components/HeroRunControl.tsx'
 import {
   RunConfigDialog,
   type RunConfigDialogInjected,
   type TaskRunnerDialogSettings,
-} from './RunConfigDialog.tsx'
-import { RunControl, type RunControlInjected } from './RunControl.tsx'
-import { createTaskRunnerRpc } from './rpc.ts'
+} from './components/RunConfigDialog.tsx'
+import { RunControl, type RunControlInjected } from './components/RunControl.tsx'
+import { en, NS, zh } from './core/locales.ts'
+import { createTaskRunnerRpc } from './core/rpc.ts'
 
 /** Required services: slots (registration), locale, the wire, the settings scope binder, and sessions/workspaces (hero connect + run handoff). */
 export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'sessions', 'workspaces']
