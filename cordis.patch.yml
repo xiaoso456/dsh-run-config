@@ -1,0 +1,3 @@
+- insert:
+    - id: task-runner
+      name: '@xiaoso/dsh-task-runner'

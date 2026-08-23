@@ -1,0 +1,131 @@
+/**
+ * Hero-page run control surface. The run + settings buttons are the
+ * official dsh Button primitive; the workspace picker is the official
+ * dsh Menu primitive (dense). This module only carries the row layout,
+ * the picker trigger, the status pill, and the workspace-add row.
+ */
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.pickerTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  max-width: 220px;
+  padding: 3px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+  transition:
+    background 120ms ease-out,
+    border-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.pickerTrigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.pickerTrigger:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+.pickerName {
+  flex: 1;
+  min-width: 0;
+  max-width: 170px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.addRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.pathInput {
+  box-sizing: border-box;
+  width: 220px;
+  padding: 5px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-fill-l1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+  outline: none;
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.pathInput:focus {
+  border-color: var(--dsw-alias-accent);
+  box-shadow: 0 0 0 3px var(--dsw-alias-accent-soft);
+}
+
+.pathInput::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out,
+    transform 120ms ease-out;
+}
+
+.addButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.addButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.addButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+.addButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pickerTrigger,
+  .pathInput,
+  .addButton {
+    transition: none;
+    animation: none;
+  }
+}

@@ -1,0 +1,82 @@
+/**
+ * Session-header run control surface.
+ *
+ * The run + settings buttons are the official dsh Button primitive (primary
+ * pill + ghost icon); the task dropdown is the official dsh Menu primitive.
+ * This module only carries the row layout, the picker trigger, and the
+ * transient status pill.
+ */
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.picker {
+  position: relative;
+}
+
+.pickerTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  max-width: 220px;
+  padding: 3px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+  transition:
+    background 120ms ease-out,
+    border-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.pickerTrigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.pickerTriggerOpen {
+  background: var(--dsw-alias-fill-l1);
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.pickerTrigger:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+.pickerName {
+  flex: 1;
+  min-width: 0;
+  max-width: 170px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pickerTrigger svg {
+  flex: none;
+  transition: transform 120ms ease-out;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pickerTrigger,
+  .pickerTrigger svg {
+    transition: none;
+    animation: none;
+  }
+}

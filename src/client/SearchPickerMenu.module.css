@@ -1,0 +1,195 @@
+/**
+ * Searchable picker dropdown surface.
+ *
+ * Visual contract mirrors the official dsh Menu (Menu.module.css): card =
+ * menu surface, radius 12, inverted hairline border, shadow-lv3, 4px inset
+ * padding; rows = radius 10, 8px icon slot, trailing check, hover fill;
+ * group labels = small tertiary caps; footer = l2 hairline + 4px gutter.
+ * `dense` shrinks rows to 34px (the official dense variant).
+ */
+
+.card {
+  position: fixed;
+  z-index: 1100;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* Fixed width for the header/hero pickers; the dialog's workspace picker
+     overrides it inline via `matchWidth` to align with its trigger. */
+  width: 300px;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 12px;
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
+  /* GPU-only open: opacity + scale (transform), spring-like ease. */
+  animation: menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.searchWrap {
+  flex: none;
+  position: relative;
+  margin: 0 0 4px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 10px 6px 27px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-fill-l1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  outline: none;
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.search:focus {
+  border-color: var(--dsw-alias-accent);
+  box-shadow: 0 0 0 3px var(--dsw-alias-accent-soft);
+}
+
+.search::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.itemWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.groupLabel {
+  padding: 8px 10px 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Menu cell (official): min-height 40, r10, pad 10/8, 14/22, gap 8. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 22px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease-out;
+}
+
+.row:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: -1px;
+}
+
+/* Selected row: plain fill, marker is the trailing check (official). */
+.rowSelected {
+  background: transparent;
+}
+
+.dense .row {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.dense .groupLabel {
+  padding-block: 4px;
+}
+
+.rowIcon {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check {
+  flex: none;
+  display: inline-flex;
+  color: var(--dsw-alias-label-primary);
+}
+
+.empty {
+  padding: 10px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search,
+  .row,
+  .card {
+    transition: none;
+    animation: none;
+  }
+}

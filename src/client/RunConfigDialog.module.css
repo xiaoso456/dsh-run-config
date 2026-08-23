@@ -1,0 +1,821 @@
+/**
+ * Run-config dialog surface.
+ *
+ * Shape rule: containers 10px, controls 8px; the pill radius is reserved
+ * for segments, the switch track, and status/group pills (matches the
+ * host's pill buttons). Motion: transform/opacity only, 120ms ease-out,
+ * fully disabled under `prefers-reduced-motion`.
+ *
+ * Height rule (critical): the host Modal is `overflow: hidden` and
+ * vertically centered, so a dialog taller than the viewport clips with no
+ * scroll. The left/right panes cap themselves at `calc(100vh - 300px)`,
+ * which leaves room for the modal chrome (root padding 48, header 58,
+ * gaps 72, footer 32, dialog padding 24 ≈ 234px) plus the switch row, so
+ * the whole dialog always fits the viewport.
+ */
+
+/* The host Modal card is `width: min(380px, 100%)`; widen it to the
+   plugin's own column. The `div` prefix keeps specificity above the
+   host's `.dialog` rule regardless of stylesheet order. */
+div.dialog {
+  width: min(880px, calc(100vw - 48px));
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.layout {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  /* Fixed height so the dialog is identical with or without a selection:
+     the panes scroll internally. The cap keeps the whole dialog inside the
+     viewport (modal chrome ≈ 234px + switch row ≈ 66px). */
+  height: min(460px, calc(100vh - 300px));
+  /* Dialog-open entrance (the Modal remounts its children each open). */
+  animation: rise-in 240ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- left pane: task list ---------- */
+
+.left {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 264px;
+  min-height: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.toolButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out,
+    transform 120ms ease-out;
+}
+
+.toolButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.toolButton:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.toolButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+.toolButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.toolButtonDanger {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.toolButtonDanger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.searchWrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  margin-left: 4px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 8px 4px 25px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-fill-l1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+  outline: none;
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.search:focus {
+  border-color: var(--dsw-alias-accent);
+  box-shadow: 0 0 0 3px var(--dsw-alias-accent-soft);
+}
+
+.search::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Delete confirmation strip: NEUTRAL dark surface (the host's
+   `state-error-secondary` is a SOLID red in dark mode, so a red strip
+   would swallow the red confirm button). The error hue lives in the
+   leading icon, the confirm button's border/text, and the hover tint. */
+.confirmBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.confirmIcon {
+  flex: none;
+  display: inline-flex;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.confirmText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.confirmActions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+/* Danger confirm button: error border + text on the neutral strip. The
+   `button.` prefix outranks the host Button's `.outline` rule regardless
+   of stylesheet order. */
+button.confirmDanger {
+  border-color: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+button.confirmDanger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 3px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+}
+
+.groupCount {
+  flex: none;
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px 4px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+  /* Mount animation: fade + rise (compositor-only), staggered per row. */
+  animation: row-in 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: background 120ms ease-out;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.rowSelected {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: -1px;
+}
+
+.dragHandle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0.55;
+  cursor: grab;
+  transition: opacity 120ms ease-out;
+}
+
+.dragHandleIcon {
+  display: block;
+  transform: rotate(90deg);
+}
+
+.row:hover .dragHandle {
+  opacity: 1;
+}
+
+.typeChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  transition: color 120ms ease-out;
+}
+
+.rowSelected .typeChip {
+  color: var(--dsw-alias-accent);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rowCheck {
+  flex: none;
+  display: inline-flex;
+  color: var(--dsw-alias-accent);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* The right pane's empty state stretches to fill the pane, so the dialog
+   height stays identical whether a task is selected or not. */
+.right > .empty {
+  flex: 1;
+  min-height: 0;
+}
+
+.emptyIcon {
+  display: inline-flex;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0.85;
+}
+
+/* ---------- right pane: task form ---------- */
+
+.right {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  padding: 14px;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.fieldHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* Conditional form blocks (workspace field, prompt/command, notify) slide
+   in when the type/scope segments switch. */
+.fieldReveal {
+  animation: fade-slide 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes fade-slide {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-fill-l1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  outline: none;
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.input:focus {
+  border-color: var(--dsw-alias-accent);
+  box-shadow: 0 0 0 3px var(--dsw-alias-accent-soft);
+}
+
+/* Workspace picker field: a trigger button styled like an input plus the
+   searchable SearchPickerMenu portal. */
+.pickerField {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+button.pickerTriggerOpen {
+  border-color: var(--dsw-alias-accent);
+}
+
+.pickerField button.input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pickerValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.selectArrow {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 120ms ease-out;
+  pointer-events: none;
+}
+
+.selectArrowOpen {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  transform: rotate(180deg);
+  transition: transform 120ms ease-out;
+  pointer-events: none;
+}
+
+.textarea {
+  min-height: 92px;
+  resize: vertical;
+  font-family: var(--dsw-font-mono);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* Segmented control: type + scope pickers. The active state is a sliding
+   indicator (transform: translateX — compositor-only) instead of a painted
+   background, giving Tab-like switching. */
+.segmentGroup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-fill-l1);
+}
+
+.segmentIndicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-active);
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+  transition: color 120ms ease-out;
+}
+
+.segment:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.segmentActive {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+/* Notify-LLM checkbox (custom box, sr-only input). Dark-mode visibility:
+   a mid-grey border on the empty state (the 20% white borders vanish on
+   the dark card) and the same near-white fill as the switch when checked
+   (the accent token reads too dark here). */
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.checkbox {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary-foreground);
+  transition:
+    background 120ms ease-out,
+    border-color 120ms ease-out;
+}
+
+.checkboxRow:hover .checkbox {
+  border-color: var(--dsw-alias-label-secondary);
+}
+
+.checkInput:checked + .checkbox {
+  border-color: var(--dsw-alias-button-primary-fill);
+  background: var(--dsw-alias-button-primary-fill);
+}
+
+.checkInput:focus-visible + .checkbox {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 1px;
+}
+
+/* The check glyph pops in (compositor-only scale). */
+.checkbox svg {
+  animation: check-pop 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes check-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.checkboxText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.checkboxTitle {
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.checkboxHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* ---------- footer switch ---------- */
+
+/* Both panes live inside the host Modal's .body, whose own spacing rules
+   don't apply between them, so the switch card needs its own top gutter to
+   not touch the layout pane's border. */
+.switchRow {
+  flex: none;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  animation: rise-in 240ms 60ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.switchLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.switchInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.switchTrack {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  /* Off state: the neutral tool-bar fill (border-l2 is nearly invisible
+     on the dark card). */
+  background: var(--dsw-alias-button-tool-bar-fill);
+  transition: background 160ms ease-out;
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  /* The thumb stays dark; the ON track flips to the near-white primary
+     fill, so the state reads clearly in dark mode without relying on the
+     accent token's darkness. */
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The label renders input → text → track, so the checked/focus styles use
+   the sibling chain (input + text + track) instead of the old
+   input + track adjacency. */
+.switchInput:checked + .switchText + .switchTrack {
+  background: var(--dsw-alias-button-primary-fill);
+}
+
+.switchInput:checked + .switchText + .switchTrack .switchThumb {
+  transform: translateX(14px);
+}
+
+.switchInput:focus-visible + .switchText + .switchTrack {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: 2px;
+}
+
+.switchText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.switchTitle {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.switchHint {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* ---------- modal footer ---------- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.footerError {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.footerSaved {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-state-success-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.footerErrorText {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ---------- narrow viewports ---------- */
+
+@media (max-width: 640px) {
+  div.dialog,
+  .modalContent {
+    width: calc(100vw - 24px);
+  }
+
+  .layout {
+    flex-direction: column;
+    height: calc(100vh - 300px);
+  }
+
+  .left {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 38%;
+  }
+
+  .right {
+    min-height: 0;
+    flex: 1 1 62%;
+  }
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .toolButton,
+  .search,
+  .row,
+  .segment,
+  .segmentIndicator,
+  .input,
+  .checkbox,
+  .checkbox svg,
+  .switchTrack,
+  .switchThumb,
+  .layout,
+  .switchRow,
+  .fieldReveal {
+    transition: none;
+    animation: none;
+  }
+}
