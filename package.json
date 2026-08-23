@@ -14,7 +14,8 @@
     "url": "https://github.com/xiaoso456/dsh-run-config/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "sideEffects": [
     "lib/client.js"
