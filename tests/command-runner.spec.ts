@@ -56,6 +56,10 @@ interface ShellRequest {
   workdir?: string
   sandboxPolicy?: { mode: string; workspaceRoot: string }
 }
+/** Captured output returned by the stub's `readOutput` (per-run). */
+let shellOutput = ''
+let shellLossy = false
+let shellSpillPath: string | undefined
 const stubShell = {
   resolve: (request: ShellRequest) => {
     shellRequests.push(request)
@@ -72,7 +76,11 @@ const stubShell = {
     exitCode: 0,
     signal: null,
     done: Promise.resolve(),
-    readOutput: () => ({ delta: '', lossy: false }),
+    readOutput: () => ({
+      delta: shellOutput,
+      lossy: shellLossy,
+      ...(shellSpillPath !== undefined ? { stdoutSpillPath: shellSpillPath } : {}),
+    }),
     kill: () => true,
   }),
 }
@@ -106,8 +114,8 @@ describe('runCommandTask', () => {
     ctx.agents.register(agent)
     ctx.provide('shell', stubShell)
     // Deployment policy rooted elsewhere: the run must still confine the
-    // command to the TASK's workspace (the bug that made `echo ok > marker`
-    // fail with exit 1 when the server's cwd was not the task workspace).
+    // command to the run cwd (the bug that made `echo ok > marker` fail with
+    // exit 1 when the server's cwd was not the run directory).
     ctx.provide('sandboxPolicy', {
       resolve: () => ({
         mode: 'workspace-write' as const,
@@ -116,10 +124,13 @@ describe('runCommandTask', () => {
     })
 
     shellRequests.length = 0
-    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work', 'zh')
+    shellOutput = ''
+    shellLossy = false
+    shellSpillPath = undefined
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
     expect(id).toBe('task-1')
 
-    // The shell request carries the session mode with the TASK workspace root.
+    // The shell request carries the session mode rooted at the run cwd.
     expect(shellRequests[0]?.sandboxPolicy).toEqual({
       mode: 'workspace-write',
       workspaceRoot: 'D:\\work',
@@ -134,13 +145,14 @@ describe('runCommandTask', () => {
     // The pending wait marked the job reported (tool-jobs notice suppressed).
     expect(snapshot.reported).toBe(true)
 
-    // Idle owner → followup with the zh fixed template.
+    // Idle owner → followup with the fixed English template (official
+    // tool-jobs shape: brief status + job_output pointer, no output body).
     expect(agent.followup).toHaveBeenCalledTimes(1)
     const message = (agent.followup as unknown as Mock).mock.calls[0]?.[0] as {
       content: { text: string }[]
     }
     expect(message.content[0]?.text).toBe(
-      '后台任务 task-1「发布检查」已完成（用户手动启动）[status: completed]',
+      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
     )
   })
 
@@ -152,15 +164,80 @@ describe('runCommandTask', () => {
     const agent = stubAgent(ctx, 'session-test')
     ctx.agents.register(agent)
     ctx.provide('shell', stubShell)
+    shellOutput = 'ignored output'
+    shellLossy = false
+    shellSpillPath = undefined
 
     const task = commandTask()
     task.notifyLlm = false
-    runCommandTask(ctx, task, agent, 'D:\\work', 'en')
+    runCommandTask(ctx, task, agent, 'D:\\work')
 
     await tick()
     await tick()
 
     expect(agent.followup).not.toHaveBeenCalled()
     expect(agent.inject).not.toHaveBeenCalled()
+  })
+
+  it('keeps the full captured output on the job for job_output', async () => {
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    ctx.provide('shell', stubShell)
+    shellOutput = 'hello\nworld\n'
+    shellLossy = false
+    shellSpillPath = undefined
+
+    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+
+    await tick()
+    await tick()
+
+    // The notice stays brief; the FULL output lives on the job (no
+    // outputLimitBytes) and is served verbatim by jobs.read / job_output.
+    const message = (agent.followup as unknown as Mock).mock.calls[0]?.[0] as {
+      content: { text: string }[]
+    }
+    expect(message.content[0]?.text).toBe(
+      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+    )
+    const snapshot = ctx.jobs.get('task-1' as JobId, agent)
+    expect(snapshot.outputLimitBytes).toBeUndefined()
+    const read = ctx.jobs.read('task-1' as JobId, agent)
+    expect(read.text).toBe('hello\nworld\n')
+  })
+
+  it('keeps the spill-file pointer on the job when the executor truncated', async () => {
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    ctx.provide('shell', stubShell)
+    shellOutput = 'tail of the long output'
+    shellLossy = true
+    shellSpillPath = 'D:\\tmp\\task-stdout.spill'
+
+    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+
+    await tick()
+    await tick()
+
+    // The notice is unchanged; the spill pointer rides on the job output so
+    // job_output readers can reach the full stream file.
+    const message = (agent.followup as unknown as Mock).mock.calls[0]?.[0] as {
+      content: { text: string }[]
+    }
+    expect(message.content[0]?.text).toBe(
+      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+    )
+    const read = ctx.jobs.read('task-1' as JobId, agent)
+    expect(read.text).toBe(
+      'tail of the long output\n[Output truncated; read D:\\tmp\\task-stdout.spill for full output]',
+    )
   })
 })

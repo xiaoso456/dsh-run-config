@@ -1,6 +1,6 @@
 /**
- * Unit tests for the command-completion notification template (fixed zh/en
- * copy per plan §2.6, including the "user-started" marker).
+ * Unit tests for the completion-notice template: the official tool-jobs
+ * notice shape with the `User-started job` marker.
  */
 
 import type { JobId, JobSnapshot } from '@deepseek-ai/dsh-jobs'
@@ -20,27 +20,17 @@ function snapshot(overrides: Partial<JobSnapshot> = {}): JobSnapshot {
 }
 
 describe('completionNoticeText', () => {
-  it('renders the zh template with the user-started marker', () => {
-    const text = completionNoticeText(snapshot(), 'zh')
-    expect(text).toBe('后台任务 task-1「每日总结」已完成（用户手动启动）[status: completed]')
-  })
-
-  it('renders the en template with the user-started marker', () => {
-    const text = completionNoticeText(snapshot(), 'en')
+  it('renders the English template with the user-started marker', () => {
+    const text = completionNoticeText(snapshot())
     expect(text).toBe(
-      'Background job task-1 "每日总结" finished (user-started) [status: completed]',
+      'User-started job task-1 (task: 每日总结) finished [status: completed]. Read its output with job_output.',
     )
   })
 
   it('includes the producer detail inside the status bracket', () => {
-    const text = completionNoticeText(snapshot({ status: 'failed', detail: 'exit code: 3' }), 'en')
+    const text = completionNoticeText(snapshot({ status: 'failed', detail: 'exit code: 3' }))
     expect(text).toBe(
-      'Background job task-1 "每日总结" finished (user-started) [status: failed, exit code: 3]',
+      'User-started job task-1 (task: 每日总结) finished [status: failed, exit code: 3]. Read its output with job_output.',
     )
-  })
-
-  it('falls back to English for unknown locales', () => {
-    const text = completionNoticeText(snapshot(), 'fr')
-    expect(text).toContain('Background job')
   })
 })

@@ -123,13 +123,13 @@ async function dispatch(
       if (task.type !== 'command') throw new Error(`task ${id} is not a command task`)
       const agent = ctx.agents.get(sessionId as SessionId)
       if (agent === undefined) throw new Error(`no live agent for session ${sessionId}`)
+      // Session workspace first (matches the official bash tool's cwd and
+      // sandbox root); the task's bound workspace is only the fallback for
+      // sessions without a cwd (e.g. the new-session hero page).
       const cwd =
-        task.scope === 'workspace' && task.workspacePath !== undefined
-          ? task.workspacePath
-          : agent.session.header.cwd
+        agent.session.header.cwd ?? (task.scope === 'workspace' ? task.workspacePath : undefined)
       if (cwd === undefined) throw new Error('no working directory for the command task')
-      const locale = typeof input.locale === 'string' ? input.locale : 'en'
-      const jobId = runCommandTask(ctx, task, agent, cwd, locale)
+      const jobId = runCommandTask(ctx, task, agent, cwd)
       return ok({ jobId })
     }
     default:
