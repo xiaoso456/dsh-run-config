@@ -5,7 +5,7 @@
  * (`serviceAsk` → `approval.request`), while `{ kind: 'allow' }` skips
  * approval entirely. The tool body itself never touches approval — see
  * `./tool.ts` for the tool definition.
- * @module @xiaoso/dsh-task-runner/approval
+ * @module @xiaoso/dsh-run-config/approval
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -27,7 +27,7 @@ function writeApprovalReason(
   args: TaskRunnerToolArgs,
   locale: 'zh' | 'en',
 ): string {
-  const plugin = locale === 'zh' ? '【dsh-task-runner】' : '[dsh-task-runner] '
+  const plugin = locale === 'zh' ? '【dsh-run-config】' : '[dsh-run-config] '
   const typeName = (type: string | undefined): string =>
     locale === 'zh'
       ? type === 'command'

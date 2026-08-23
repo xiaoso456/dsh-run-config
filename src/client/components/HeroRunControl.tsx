@@ -10,7 +10,7 @@
  * connects/creates the workspace's session (`connectWorkspace`), then hands
  * the task to the session header through the shared store's pending-run
  * slot, which executes it once the session is current.
- * @module @xiaoso/dsh-task-runner/client/HeroRunControl
+ * @module @xiaoso/dsh-run-config/client/HeroRunControl
  */
 
 import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'

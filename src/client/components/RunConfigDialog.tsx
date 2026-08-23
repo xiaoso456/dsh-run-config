@@ -8,7 +8,7 @@
  *
  * Visual language: host design tokens only, precision-tool density. See
  * RunConfigDialog.module.css for the shape / motion / height rules.
- * @module @xiaoso/dsh-task-runner/client/RunConfigDialog
+ * @module @xiaoso/dsh-run-config/client/RunConfigDialog
  */
 
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'

@@ -2,7 +2,7 @@
  * Client-side copies of the task model and RPC payloads. The browser half
  * must not depend on the Host package, so these shapes are spelled here
  * (official convention: the client spells the same values the Host registers).
- * @module @xiaoso/dsh-task-runner/client/types
+ * @module @xiaoso/dsh-run-config/client/types
  */
 
 /** Task type: `llm` sends a prompt into the current session; `command` runs a bash command in the background. */

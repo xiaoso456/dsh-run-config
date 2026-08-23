@@ -1,4 +1,4 @@
-# dsh-task-runner — Run Configuration Management for DeepSeek Harness
+# dsh-run-config — Run Configuration Management for DeepSeek Harness
 
 English | [中文](README.md)
 
@@ -47,7 +47,7 @@ can pick it from the session header and run it with one click.
 ### From npm (recommended)
 
 ```sh
-dsh plugin --profile web add @xiaoso/dsh-task-runner
+dsh plugin --profile web add @xiaoso/dsh-run-config
 dsh web
 ```
 
@@ -60,7 +60,7 @@ dsh plugin --profile web add link:<path-to-this-repo>
 ### From GitHub
 
 ```sh
-dsh plugin --profile web add github:xiaoso456/dsh-task-runner
+dsh plugin --profile web add github:xiaoso456/dsh-run-config
 ```
 
 Git installs run this package's `prepare` script to build the artifacts;

@@ -13,6 +13,46 @@
  *  5. close the menu; report console errors. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
 const BASE = 'http://127.0.0.1:3190'
+const TASK_NAME = `combo-verify-${Date.now().toString(36)}`
+
+/** Create a global command task through the host RPC proxy so the run
+ *  control has a visible configuration regardless of the current
+ *  workspace's task state. */
+async function createTaskViaRpc() {
+  const res = await fetch(`${BASE}/task-runner/tasks/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'client-request',
+      rpcId: 'combo-verify',
+      method: 'tasks/create',
+      payload: {
+        name: TASK_NAME,
+        type: 'command',
+        scope: 'global',
+        command: 'echo combo-ok',
+        notifyLlm: true,
+      },
+    }),
+  })
+  const body = await res.json()
+  const result = body.result
+  if (result?.ok !== true) throw new Error(`create failed: ${JSON.stringify(body)}`)
+  return result.value.task.id
+}
+
+async function deleteTaskViaRpc(id) {
+  await fetch(`${BASE}/task-runner/tasks/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'client-request',
+      rpcId: 'combo-verify',
+      method: 'tasks/delete',
+      payload: { id },
+    }),
+  }).catch(() => {})
+}
 
 async function closeAllTabs() {
   try {
@@ -27,6 +67,7 @@ async function closeAllTabs() {
 
 async function main() {
   console.error('[combo] opening CDP target...')
+  const taskId = await createTaskViaRpc()
   await closeAllTabs()
   const target = await fetch(`${CDP_HTTP}/json/new?about:blank`, {
     method: 'PUT',
@@ -80,7 +121,7 @@ async function main() {
   for (let i = 0; i < 60; i++) {
     await sleep(2000)
     const ok = await evaluate(
-      `[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === '运行')`,
+      `[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === '运行' || b.getAttribute('aria-label') === 'Run')`,
     )
     if (ok) {
       booted = true
@@ -92,7 +133,7 @@ async function main() {
 
   // 1. Structure: the run segment and the picker segment share one container.
   results.structure = await evaluate(`(() => {
-    const run = document.querySelector('[aria-label="运行"]')
+    const run = document.querySelector('[aria-label="运行"], [aria-label="Run"]')
     if (!run) return { found: false }
     const combo = run.parentElement
     if (!combo) return { found: false }
@@ -113,7 +154,7 @@ async function main() {
 
   // 2. Click the picker segment → task menu with the edit-config footer.
   await evaluate(`(() => {
-    const run = document.querySelector('[aria-label="运行"]')
+    const run = document.querySelector('[aria-label="运行"], [aria-label="Run"]')
     const pick = run.parentElement.querySelector('[aria-expanded]')
     pick.click()
     return true
@@ -125,7 +166,7 @@ async function main() {
     const text = menu.innerText
     return {
       found: true,
-      hasFooter: text.includes('编辑配置'),
+      hasFooter: text.includes('编辑配置') || text.includes('Edit configurations'),
       rows: menu.querySelectorAll('button[role="menuitem"]').length,
     }
   })()`)
@@ -143,16 +184,24 @@ async function main() {
   })
   await sleep(400)
 
-  // 3. Hover the run segment → tooltip bubble with the run hint.
-  await evaluate(`(() => {
-    const run = document.querySelector('[aria-label="运行"]')
-    run.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-    return true
+  // 3. Hover the run segment → tooltip bubble with the run hint. The official
+  // Tooltip listens to React onMouseEnter; the first CDP mouseMoved only parks
+  // the pointer, so move to a neutral spot first, then onto the button center.
+  const runRect = await evaluate(`(() => {
+    const run = document.querySelector('[aria-label="运行"], [aria-label="Run"]')
+    const r = run.getBoundingClientRect()
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
   })()`)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
+  await sleep(150)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: runRect.x, y: runRect.y })
   await sleep(700)
   results.tooltip = await evaluate(`(() => {
     const bubbles = [...document.querySelectorAll('span')].filter(
-      (el) => el.textContent.includes('在当前工作区运行任务配置') && el.children.length === 0,
+      (el) =>
+        (el.textContent.includes('在当前工作区运行任务配置') ||
+          el.textContent.includes('in the current workspace')) &&
+        el.children.length === 0,
     )
     return { found: bubbles.length > 0, text: bubbles[0]?.textContent ?? '' }
   })()`)
@@ -163,6 +212,7 @@ async function main() {
   for (const e of consoleErrors.slice(0, 10)) console.log(' -', e.slice(0, 300))
 
   ws.close()
+  await deleteTaskViaRpc(taskId)
   const pass =
     results.structure?.found === true &&
     results.structure?.sameHeight === true &&

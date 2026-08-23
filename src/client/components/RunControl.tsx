@@ -10,7 +10,7 @@
  *
  * Visual language: the official dsh Button + Menu primitives (host styles),
  * pill status chips. See RunControl.module.css for the small surface rules.
- * @module @xiaoso/dsh-task-runner/client/RunControl
+ * @module @xiaoso/dsh-run-config/client/RunControl
  */
 
 // Type-only: the ui-conversation standard-kit merge (useInput / inputActions).

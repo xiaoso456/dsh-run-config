@@ -5,7 +5,7 @@
  * by the caller); clicking the run segment runs the selected task. The run
  * segment carries the official Tooltip ("run task X in the current
  * workspace"), so the action is discoverable without any run label.
- * @module @xiaoso/dsh-task-runner/client/RunCombo
+ * @module @xiaoso/dsh-run-config/client/RunCombo
  */
 
 import { IconChevronDownOutline14, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'

@@ -120,7 +120,7 @@ async function main() {
       const text = document.body.innerText
       return {
         hasSkillName: text.includes('run-configuration'),
-        hasSummary: text.includes('How to use dsh-task-runner run configurations'),
+        hasSummary: text.includes('How to use dsh-run-config run configurations'),
         snippet: text.split('\\n').find(l => l.includes('run-configuration')) ?? '',
       }
     })()`)

@@ -4,7 +4,7 @@
  * trigger, defaults); the full parameter reference, decision rules, and
  * examples live here and are loaded on demand through the official skill
  * mechanism (catalog summary injected, content fetched when the model asks).
- * @module @xiaoso/dsh-task-runner/skill
+ * @module @xiaoso/dsh-run-config/skill
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -14,7 +14,7 @@ export const RUN_CONFIGURATION_SKILL = 'run-configuration'
 
 /** Catalog summary injected into the model context (keep it short). */
 const DESCRIPTION =
-  'How to use dsh-task-runner run configurations: when to create vs reuse, ' +
+  'How to use dsh-run-config run configurations: when to create vs reuse, ' +
   'scope/type defaults, and the full parameter reference with examples.'
 
 /** When the model should load this skill. */
@@ -23,7 +23,7 @@ const WHEN_TO_USE =
   'configuration, or when task_run_config usage details are needed.'
 
 /** The full usage guide, loaded on demand. */
-const CONTENT = `# Run configurations (dsh-task-runner)
+const CONTENT = `# Run configurations (dsh-run-config)
 
 A run configuration is a reusable launch preset for the web run-control:
 either an LLM prompt sent into the current session, or a shell command run in

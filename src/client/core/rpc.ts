@@ -1,6 +1,6 @@
 /**
  * Client-side caller for the `/task-runner` Connection RPC channel.
- * @module @xiaoso/dsh-task-runner/client/rpc
+ * @module @xiaoso/dsh-run-config/client/rpc
  */
 
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'

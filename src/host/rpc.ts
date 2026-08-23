@@ -3,7 +3,7 @@
  * endpoints for task CRUD and command runs. Endpoints are plain JSON; every
  * handler returns the `{ ok, value }` / `{ ok, error }` result shape the
  * channel contract requires.
- * @module @xiaoso/dsh-task-runner/rpc
+ * @module @xiaoso/dsh-run-config/rpc
  */
 
 import type { Context } from '@deepseek-ai/cordis'

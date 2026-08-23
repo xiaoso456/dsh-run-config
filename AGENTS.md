@@ -1,4 +1,4 @@
-# AGENTS.md — dsh-task-runner
+# AGENTS.md — dsh-run-config
 
 ## Commands
 

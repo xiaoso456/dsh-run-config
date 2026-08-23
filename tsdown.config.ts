@@ -1,5 +1,5 @@
 /**
- * Third-party tsdown build for @xiaoso/dsh-task-runner.
+ * Third-party tsdown build for @xiaoso/dsh-run-config.
  *
  * Node half: plain ESM library build from src — `@deepseek-ai/*` imports stay
  * external (the Loader resolves them through the profile install), so only this
@@ -16,7 +16,7 @@ import { transform } from 'lightningcss'
 import { defineConfig } from 'tsdown'
 
 /** Package name — the loader module-table id and the style-tag owner stamp. */
-const ID = '@xiaoso/dsh-task-runner'
+const ID = '@xiaoso/dsh-run-config'
 
 /** Platform modules the frozen loader table answers; every other import inlines. */
 const CLIENT_EXTERNALS = [

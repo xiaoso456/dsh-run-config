@@ -9,7 +9,7 @@
  * positioning clamped 12px inside the viewport, and dense row sizing.
  * On top of that it adds a search input (with icon) that filters the
  * selectable rows; group labels vanish when their rows are filtered out.
- * @module @xiaoso/dsh-task-runner/client/SearchPickerMenu
+ * @module @xiaoso/dsh-run-config/client/SearchPickerMenu
  */
 
 import {

@@ -1,9 +1,9 @@
 /**
- * Locale bundles for the dsh-task-runner UI. zh is the source of truth for
+ * Locale bundles for the dsh-run-config UI. zh is the source of truth for
  * the key set; en is checked complete against it (both dictionaries are
  * `Record<TaskRunnerLocaleKey, string>`, so a missing or extra key in either
  * is a compile error (the official registration enforces bilingual balance).
- * @module @xiaoso/dsh-task-runner/client/locales
+ * @module @xiaoso/dsh-run-config/client/locales
  */
 
 /** Locale dictionary namespace of this plugin's UI copy. */

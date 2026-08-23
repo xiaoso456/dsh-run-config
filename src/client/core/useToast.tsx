@@ -4,7 +4,7 @@
  * `show(text, icon?)` from event handlers; re-showing restarts the cycle via
  * a per-show key. Rendered wherever the caller mounts it (Toast portals to
  * document.body itself).
- * @module @xiaoso/dsh-task-runner/client/useToast
+ * @module @xiaoso/dsh-run-config/client/useToast
  */
 
 import { Toast } from '@deepseek-ai/dsh-client-ui-primitives'

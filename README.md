@@ -1,4 +1,4 @@
-# dsh-task-runner — DeepSeek Harness 运行配置管理
+# dsh-run-config — DeepSeek Harness 运行配置管理
 
 [English](README.en.md) | 中文
 
@@ -35,7 +35,7 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add @xiaoso/dsh-task-runner
+dsh plugin --profile web add @xiaoso/dsh-run-config
 dsh web
 ```
 
@@ -48,7 +48,7 @@ dsh plugin --profile web add link:<本仓库路径>
 ### 从 GitHub 安装
 
 ```sh
-dsh plugin --profile web add github:xiaoso456/dsh-task-runner
+dsh plugin --profile web add github:xiaoso456/dsh-run-config
 ```
 
 git 安装会跑本包的 `prepare` 脚本构建产物；pnpm ≥10 会在首次 `add` 失败并提示在 profile 的 `pnpm-workspace.yaml` 里允许该构建。

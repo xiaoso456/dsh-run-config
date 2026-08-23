@@ -1,5 +1,5 @@
 /**
- * dsh-task-runner, host half.
+ * dsh-run-config, host half.
  *
  * Wires the persistent task store (storage domain), the `/task-runner`
  * Connection RPC channel (task CRUD + command runs), the `task-runner`
@@ -8,7 +8,7 @@
  *
  * Run semantics: `llm` tasks run purely in the browser (standard send flow);
  * `command` tasks run here as background jobs (see host/command.ts).
- * @module @xiaoso/dsh-task-runner
+ * @module @xiaoso/dsh-run-config
  */
 
 import type {} from '@deepseek-ai/dsh-agent'

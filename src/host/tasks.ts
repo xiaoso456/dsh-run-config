@@ -1,11 +1,11 @@
 /**
- * Task model + persistent store for dsh-task-runner.
+ * Task model + persistent store for dsh-run-config.
  *
  * Tasks live in a `task-runner` storage domain (KV table `tasks` plus a
  * `global.taskOrder` array mirroring the workspace registry's
  * `global.workspaceIds` ordering scheme). The store is the single
  * authoritative CRUD surface shared by the RPC channel and the LLM tool.
- * @module @xiaoso/dsh-task-runner/tasks
+ * @module @xiaoso/dsh-run-config/tasks
  */
 
 import { randomUUID } from 'node:crypto'

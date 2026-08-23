@@ -3,7 +3,7 @@
  * the hero run control: the task cache, the current selection, dialog
  * visibility, and the hero → session pending-run handoff. A tiny
  * module-level snapshot store consumed through `useSyncExternalStore`.
- * @module @xiaoso/dsh-task-runner/client/store
+ * @module @xiaoso/dsh-run-config/client/store
  */
 
 import type { TaskView } from './types.ts'

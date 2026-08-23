@@ -2,7 +2,7 @@
  * Shared task-loading hook: loads the task cache once and after every
  * mutation revision, and reports load failures to the caller. The error
  * callback rides a ref so its identity never re-triggers the load loop.
- * @module @xiaoso/dsh-task-runner/client/useTaskLoader
+ * @module @xiaoso/dsh-run-config/client/useTaskLoader
  */
 
 import { useEffect, useRef } from 'react'

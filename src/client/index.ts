@@ -1,10 +1,10 @@
 /**
- * dsh-task-runner, browser half. Registers the session-header run control
+ * dsh-run-config, browser half. Registers the session-header run control
  * (`conversation.session.header.utilities`), the run-config dialog
  * (`shell.overlay`), and the hero composite (`conversation.hero.workspace`,
  * shadowing the default picker at a lower priority), and wires the
  * `/task-runner` RPC caller plus the `task-runner` settings scope.
- * @module @xiaoso/dsh-task-runner/client
+ * @module @xiaoso/dsh-run-config/client
  */
 
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'

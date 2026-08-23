@@ -1,10 +1,10 @@
 /**
- * Settings surface for dsh-task-runner: the `task-runner` namespace holds the
+ * Settings surface for dsh-run-config: the `task-runner` namespace holds the
  * `toolEnabled` switch that controls whether the `task_run_config` LLM tool
  * is registered (default on). Uses the official optional-settings wiring so a
  * committed change applies without a reload and the plugin keeps working when
  * no settings provider is mounted.
- * @module @xiaoso/dsh-task-runner/settings
+ * @module @xiaoso/dsh-run-config/settings
  */
 
 import type { Context } from '@deepseek-ai/cordis'

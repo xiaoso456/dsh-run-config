@@ -6,7 +6,7 @@
  * the tool itself never touches approval. Description and parameters are
  * fixed English (matching the official tool surface convention — the tool
  * does not follow the UI locale).
- * @module @xiaoso/dsh-task-runner/tool
+ * @module @xiaoso/dsh-run-config/tool
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -72,7 +72,7 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
     defineTool({
       name: 'task_run_config',
       description:
-        'Manage dsh-task-runner run configurations for the web run-control. ' +
+        'Manage dsh-run-config run configurations for the web run-control. ' +
         'A run configuration is a reusable launch preset: an LLM prompt sent into the current session, ' +
         'or a shell command run in the background. ' +
         'Create one when the user asks to save/remember an operation for reuse; ' +

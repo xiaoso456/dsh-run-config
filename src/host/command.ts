@@ -11,7 +11,7 @@
  * with the TASK's workspace as the `workspace-write` root, so a command may
  * write inside the workspace it was defined for regardless of the server's
  * deployment cwd, while every other file effect stays confined to that root.
- * @module @xiaoso/dsh-task-runner/command
+ * @module @xiaoso/dsh-run-config/command
  */
 
 import type { Context } from '@deepseek-ai/cordis'

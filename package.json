@@ -1,10 +1,24 @@
 {
-  "name": "@xiaoso/dsh-task-runner",
+  "name": "@xiaoso/dsh-run-config",
   "version": "0.1.0",
   "description": "VS Code / IDEA-style run control for the DeepSeek Harness web GUI: run buttons, task run configurations (LLM prompt / background command), configuration CRUD, and an LLM-exposed configuration tool with an on-demand usage skill",
   "type": "module",
   "license": "MIT",
   "author": "xiaoso",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaoso456/dsh-run-config.git"
+  },
+  "homepage": "https://github.com/xiaoso456/dsh-run-config",
+  "bugs": {
+    "url": "https://github.com/xiaoso456/dsh-run-config/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": [
+    "lib/client.js"
+  ],
   "keywords": [
     "deepseek",
     "deepseek-harness",
@@ -36,7 +50,8 @@
     "lib/index.mjs",
     "lib/client.js",
     "cordis.patch.yml",
-    "lib/types/**/*.d.ts"
+    "lib/types/**/*.d.ts",
+    "docs/images/"
   ],
   "dsh": {
     "client": {
@@ -106,6 +121,7 @@
     "build": "tsdown",
     "build:types": "tsc -p tsconfig.build.json",
     "prepare": "pnpm run build:types && pnpm run build",
+    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm test",
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
