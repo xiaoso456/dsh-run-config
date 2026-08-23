@@ -144,7 +144,7 @@ async function main() {
   await sleep(700)
   results.tooltip = await evaluate(`(() => {
     const bubbles = [...document.querySelectorAll('span')].filter(
-      (el) => el.textContent.includes('在当前工作区运行任务') && el.children.length === 0,
+      (el) => el.textContent.includes('在当前工作区运行任务配置') && el.children.length === 0,
     )
     return { found: bubbles.length > 0, text: bubbles[0]?.textContent ?? '' }
   })()`)

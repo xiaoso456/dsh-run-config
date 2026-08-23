@@ -70,7 +70,8 @@ async function main() {
 
   const shot = async (name) => {
     const res = await send('Page.captureScreenshot', { format: 'png' })
-    if (!res.result?.data) throw new Error(`screenshot failed: ${JSON.stringify(res).slice(0, 200)}`)
+    if (!res.result?.data)
+      throw new Error(`screenshot failed: ${JSON.stringify(res).slice(0, 200)}`)
     writeFileSync(`tests/screenshots/${name}`, Buffer.from(res.result.data, 'base64'))
     console.log(`saved tests/screenshots/${name}`)
   }

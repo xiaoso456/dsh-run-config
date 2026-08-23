@@ -31,11 +31,11 @@ function writeApprovalReason(
   const typeName = (type: string | undefined): string =>
     locale === 'zh'
       ? type === 'command'
-        ? '命令任务'
-        : 'LLM 任务'
+        ? '命令配置'
+        : 'LLM 配置'
       : type === 'command'
-        ? 'command task'
-        : 'LLM task'
+        ? 'command'
+        : 'LLM'
   const scopeName = (scope: string | undefined): string =>
     locale === 'zh'
       ? scope === 'global'
@@ -49,25 +49,25 @@ function writeApprovalReason(
       return (
         plugin +
         (locale === 'zh'
-          ? `创建任务「${args.name ?? ''}」（${typeName(args.type)}，${scopeName(args.scope)}）`
-          : `Create task "${args.name ?? ''}" (${typeName(args.type)}, ${scopeName(args.scope)})`)
+          ? `创建任务运行配置「${args.name ?? ''}」（${typeName(args.type)}，${scopeName(args.scope)}）`
+          : `Create run configuration "${args.name ?? ''}" (${typeName(args.type)}, ${scopeName(args.scope)})`)
       )
     case 'update':
       return locale === 'zh'
-        ? `${plugin}更新任务「${args.id ?? ''}」`
-        : `${plugin}Update task "${args.id ?? ''}"`
+        ? `${plugin}更新任务运行配置「${args.id ?? ''}」`
+        : `${plugin}Update run configuration "${args.id ?? ''}"`
     case 'delete':
       return locale === 'zh'
-        ? `${plugin}删除任务「${args.id ?? ''}」`
-        : `${plugin}Delete task "${args.id ?? ''}"`
+        ? `${plugin}删除任务运行配置「${args.id ?? ''}」`
+        : `${plugin}Delete run configuration "${args.id ?? ''}"`
     case 'duplicate':
       return locale === 'zh'
-        ? `${plugin}复制任务「${args.id ?? ''}」`
-        : `${plugin}Duplicate task "${args.id ?? ''}"`
+        ? `${plugin}复制任务运行配置「${args.id ?? ''}」`
+        : `${plugin}Duplicate run configuration "${args.id ?? ''}"`
     default:
       return locale === 'zh'
-        ? `${plugin}管理任务配置（${action}）`
-        : `${plugin}Manage task configuration (${action})`
+        ? `${plugin}管理任务运行配置（${action}）`
+        : `${plugin}Manage run configuration (${action})`
   }
 }
 

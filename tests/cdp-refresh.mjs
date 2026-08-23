@@ -121,7 +121,7 @@ async function main() {
   // The picker opens the task menu; the dialog opens from its footer entry.
   await evaluate(`(() => {
     const entry = [...document.querySelectorAll('[role="menu"] button')].find(
-      b => b.innerText.includes('编辑配置'),
+      b => b.innerText.includes('编辑任务配置'),
     )
     if (entry) entry.click()
     return true
@@ -155,7 +155,7 @@ async function main() {
   await sleep(700)
   await evaluate(`(() => {
     const entry = [...document.querySelectorAll('[role="menu"] button')].find(
-      b => b.innerText.includes('编辑配置'),
+      b => b.innerText.includes('编辑任务配置'),
     )
     if (entry) entry.click()
     return true

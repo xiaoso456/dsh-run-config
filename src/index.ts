@@ -16,10 +16,12 @@ import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-storage-domain'
 // Type-only merges: ctx.tools / ctx.agents / ctx.connection / ctx.settings /
-// ctx.storageDomain context augmentation.
+// ctx.storageDomain context augmentation. (ctx.skills is consumed through a
+// structural cast in host/skill.ts — dsh-skill is not a project dependency.)
 import type {} from '@deepseek-ai/dsh-tools'
 import { registerTaskRunnerRpc } from './host/rpc.ts'
 import { installTaskRunnerSettings } from './host/settings.ts'
+import { registerRunConfigurationSkill } from './host/skill.ts'
 import { openTaskStore, type TaskStore } from './host/tasks.ts'
 import { registerTaskRunnerApprovalGate } from './host/tool/approval.ts'
 import { registerTaskRunnerTool } from './host/tool/tool.ts'
@@ -35,7 +37,7 @@ export const name = 'task-runner'
  * and the ToolRuntime resolves `ask` through the standard approval seam.
  * jobs/shell stay optional.
  */
-export const inject = ['storageDomain', 'tools', 'connection', 'agents']
+export const inject = ['storageDomain', 'tools', 'connection', 'agents', 'skills']
 
 /** Host plugin body. */
 export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise<void> {
@@ -43,18 +45,24 @@ export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise
   const store: TaskStore = await openTaskStore(ctx)
 
   // Tool registration follows the settings switch (`toolEnabled`, default on).
+  // The `run-configuration` skill (detailed usage guide) rides the same
+  // switch: it only makes sense while the tool is exposed.
   let toolDisposer: (() => void) | undefined
   let gateDisposer: (() => void) | undefined
+  let skillDisposer: (() => void) | undefined
   const syncTool = (enabled: boolean): void => {
     if (enabled && toolDisposer === undefined) {
       toolDisposer = registerTaskRunnerTool(ctx, store)
       // Official-pattern write-approval gate (full access → allow, else ask).
       gateDisposer = registerTaskRunnerApprovalGate(ctx)
+      skillDisposer = registerRunConfigurationSkill(ctx)
     } else if (!enabled && toolDisposer !== undefined) {
       toolDisposer()
       toolDisposer = undefined
       gateDisposer?.()
       gateDisposer = undefined
+      skillDisposer?.()
+      skillDisposer = undefined
     }
   }
   installTaskRunnerSettings(ctx, syncTool)
@@ -62,8 +70,9 @@ export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise
     () => () => {
       toolDisposer?.()
       gateDisposer?.()
+      skillDisposer?.()
     },
-    'task-runner: tool + gate teardown',
+    'task-runner: tool + gate + skill teardown',
   )
 
   // Command jobs: attach a controller so `jobs.start` serves our owners even

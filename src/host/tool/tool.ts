@@ -72,14 +72,14 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
     defineTool({
       name: 'task_runner_config',
       description:
-        'Manage dsh-task-runner run configurations (tasks) for the web run-control: ' +
-        'list existing tasks (global and workspace-scoped, including their full prompts, commands, and descriptions), ' +
-        'or create / update / delete / duplicate a task. ' +
-        'list needs no approval; write actions (create, update, delete, duplicate) go through the session approval gate ' +
-        '(skipped automatically under danger-full-access sandbox). ' +
-        'Example: to create a command task that waits 3 seconds then says hello, call ' +
-        'action=create, type=command, scope=global, name="...", command="sleep 3 && echo hello", notifyLlm=true ' +
-        '(the session is notified when the background command finishes).',
+        'Manage dsh-task-runner run configurations for the web run-control. ' +
+        'A run configuration is a reusable launch preset: an LLM prompt sent into the current session, ' +
+        'or a shell command run in the background. ' +
+        'Create one when the user asks to save/remember an operation for reuse; ' +
+        'when the user asks to run something, list existing configurations and reuse one instead of creating. ' +
+        "Default scope=workspace with the current session's workspace path; use global only when the user explicitly asks. " +
+        'type=command for shell commands, type=llm for prompts. ' +
+        'Load the run-configuration skill for detailed usage and examples.',
       parameters: {
         action: {
           type: 'string',
@@ -89,43 +89,48 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
         query: {
           type: 'string',
           description:
-            'With action=list: return only tasks whose name contains this substring (case-insensitive).',
+            'With action=list: filter configurations by name substring (case-insensitive).',
         },
-        id: { type: 'string', description: 'Task id; required for update, delete, and duplicate.' },
-        name: { type: 'string', description: 'Task name (create; optional in update).' },
+        id: {
+          type: 'string',
+          description: 'Configuration id; required for update, delete, and duplicate.',
+        },
+        name: {
+          type: 'string',
+          description: 'Configuration name (create; optional in update).',
+        },
         description: {
           type: 'string',
-          description: 'Optional note describing what the task does (create; optional in update).',
+          description: 'Optional note about what the configuration does.',
         },
         type: {
           type: 'string',
           description:
-            'Task type: "llm" (sends a prompt into the current session) or "command" (runs a bash command in the background).',
+            '"llm" (prompt sent into the current session) or "command" (bash command in the background).',
         },
         scope: {
           type: 'string',
-          description:
-            'Task scope: "global" (visible in every workspace) or "workspace" (visible only in the declared workspace).',
+          description: '"workspace" (default) or "global" (only when the user explicitly asks).',
         },
         workspacePath: {
           type: 'string',
-          description: 'Canonical workspace directory path; required when scope=workspace.',
+          description:
+            "Canonical workspace path; required when scope=workspace. Default: the current session's workspace path.",
         },
         llmPrompt: {
           type: 'string',
-          description:
-            'For type=llm tasks: the prompt sent to the LLM when the task runs. Required for llm tasks.',
+          description: 'The prompt sent to the session; required for type=llm.',
         },
         command: {
           type: 'string',
           description:
-            'For type=command tasks: the bash command to run in the background. Required for command tasks; ' +
-            'the session LLM is notified when it finishes if notifyLlm is true.',
+            'The bash command to run in the background; required for type=command. ' +
+            'notifyLlm=true notifies the session when it finishes.',
         },
         notifyLlm: {
           type: 'boolean',
           description:
-            'For type=command tasks: whether the session LLM is notified when the background job finishes (default true).',
+            'Notify the session LLM when the background command finishes (default true).',
         },
       },
       output: {

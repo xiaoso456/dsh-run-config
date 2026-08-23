@@ -167,7 +167,7 @@ async function main() {
     if (!menu) return null
     const text = menu.innerText
     const rows = [...menu.querySelectorAll('button[role="menuitem"]')]
-    const taskRows = rows.filter(r => !r.textContent.includes('编辑配置'))
+    const taskRows = rows.filter(r => !r.textContent.includes('编辑任务配置'))
     return {
       hasWorkspaceGroup: text.includes('当前工作区'),
       hasGlobalGroup: text.includes('全局'),

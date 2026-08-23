@@ -63,7 +63,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
     )
     expect(decision).toEqual({
       kind: 'ask',
-      reason: '[dsh-task-runner] Create task "sleep后说哈喽" (command task, global)',
+      reason: '[dsh-task-runner] Create run configuration "sleep后说哈喽" (command, global)',
     })
   })
 
@@ -77,7 +77,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
       ),
     ).toMatchObject({
       kind: 'ask',
-      reason: '[dsh-task-runner] Update task "t-1"',
+      reason: '[dsh-task-runner] Update run configuration "t-1"',
     })
     expect(
       decideTaskRunnerApproval(
@@ -88,7 +88,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
       ),
     ).toMatchObject({
       kind: 'ask',
-      reason: '[dsh-task-runner] Delete task "t-1"',
+      reason: '[dsh-task-runner] Delete run configuration "t-1"',
     })
     expect(
       decideTaskRunnerApproval(
@@ -99,7 +99,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
       ),
     ).toMatchObject({
       kind: 'ask',
-      reason: '[dsh-task-runner] Duplicate task "t-1"',
+      reason: '[dsh-task-runner] Duplicate run configuration "t-1"',
     })
   })
 
@@ -131,7 +131,7 @@ describe('decideTaskRunnerApproval (pure)', () => {
     )
     expect(decision).toEqual({
       kind: 'ask',
-      reason: '【dsh-task-runner】创建任务「sleep后说哈喽」（命令任务，工作区）',
+      reason: '【dsh-task-runner】创建任务运行配置「sleep后说哈喽」（命令配置，工作区）',
     })
   })
 
