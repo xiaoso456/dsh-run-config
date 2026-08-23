@@ -70,7 +70,7 @@ async function main() {
   for (let i = 0; i < 60; i++) {
     await sleep(2000)
     const ok = await evaluate(
-      `[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === '运行')`,
+      `[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === '运行' || b.getAttribute('aria-label') === 'Run')`,
     )
     if (ok) {
       booted = true
@@ -88,7 +88,7 @@ async function main() {
   if (!inSession) {
     await evaluate(`(() => {
       const b = [...document.querySelectorAll('button')].find(
-        x => x.getAttribute('aria-label') === '打开侧边栏',
+        x => x.getAttribute('aria-label') === '打开侧边栏' || x.getAttribute('aria-label') === 'Open sidebar',
       )
       if (b) b.click()
       return true
