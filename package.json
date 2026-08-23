@@ -1,6 +1,6 @@
 {
   "name": "@xiaoso/dsh-run-config",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "VS Code / IDEA-style run control for the DeepSeek Harness web GUI: run buttons, task run configurations (LLM prompt / background command), configuration CRUD, and an LLM-exposed configuration tool with an on-demand usage skill",
   "type": "module",
   "license": "MIT",
