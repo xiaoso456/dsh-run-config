@@ -15,22 +15,24 @@
 
 import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  Button,
   IconCheckOutline16,
-  IconChevronDownOutline14,
+  IconCodeOutline16,
   IconFolderOpenOutline16,
-  IconPlayOutline16,
   IconPlusOutline16,
+  IconSettingsOutline16,
+  IconThinkOutline16,
   IconWarningOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { NS } from '../core/locales.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'
 import { taskRunnerStore } from '../core/store.ts'
+import type { TaskView } from '../core/types.ts'
 import { useTaskLoader } from '../core/useTaskLoader.ts'
 import { useToast } from '../core/useToast.tsx'
 import css from './HeroRunControl.module.css'
+import { RunCombo } from './RunCombo.tsx'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
 
 /** Injected business face supplied by the client entry. */
@@ -62,6 +64,9 @@ export type HeroRunControlProps = PropsRuntime<'conversation.hero.workspace'> &
 
 const ADD_WORKSPACE = '::add-workspace'
 
+/** Footer entry id: open the run-config dialog. */
+const EDIT_CONFIG = '::edit-config'
+
 /**
  * The hero composite: workspace picker menu (when the owner opens it) plus
  * the always-visible run control row.
@@ -86,6 +91,8 @@ export function HeroRunControl({
   const [adding, setAdding] = useState(false)
   const [path, setPath] = useState('')
   const [busy, setBusy] = useState(false)
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false)
+  const taskTriggerRef = useRef<HTMLButtonElement>(null)
   const { node: toastNode, show: showToast } = useToast()
 
   // Load tasks once and after every mutation revision (the hero page has no
@@ -94,17 +101,31 @@ export function HeroRunControl({
     showToast(message, <IconWarningOutline16 size={14} />)
   })
 
+  // The hero page (new-session) only offers LLM tasks: command tasks need a
+  // workspace session to run against, which a blank hero does not have yet —
+  // they stay in the session header / run-config dialog. Both GLOBAL tasks
+  // and tasks of the CURRENT workspace are shown.
+  const currentWorkspace =
+    workspaces.find((workspace) => workspace.workspaceId === selectedId) ?? workspaces[0]
   const visible = useMemo(
-    () => (snap.tasks ?? []).filter((task) => task.scope === 'global'),
-    [snap.tasks],
+    () =>
+      (snap.tasks ?? []).filter((task) => {
+        if (task.type !== 'llm') return false
+        if (task.scope === 'global') return true
+        return task.scope === 'workspace' && task.workspacePath === currentWorkspace?.path
+      }),
+    [snap.tasks, currentWorkspace?.path],
   )
   const selected = visible.find((task) => task.id === snap.selectedId) ?? visible[0]
 
   const run = (): void => {
     const task = selected
     if (task === undefined || busy) return
-    const target =
-      workspaces.find((workspace) => workspace.workspaceId === selectedId) ?? workspaces[0]
+    if ((task.llmPrompt ?? '').trim().length === 0) {
+      showToast(t('runFailed', { message: 'empty prompt' }), <IconWarningOutline16 size={14} />)
+      return
+    }
+    const target = currentWorkspace
     if (target === undefined) {
       showToast(t('noVisibleTasks'), <IconWarningOutline16 size={14} />)
       return
@@ -182,6 +203,53 @@ export function HeroRunControl({
     onPick(id as WorkspaceId)
   }
 
+  // Task picker: the hero (new-session) page offers LLM tasks only — command
+  // tasks need a workspace session to run against, which a blank hero does
+  // not have yet. Both GLOBAL tasks and tasks of the CURRENT workspace are
+  // shown, grouped; the "edit configurations" footer entry follows.
+  const taskItems: MenuEntry[] = useMemo(() => {
+    const out: MenuEntry[] = []
+    const entry = (task: TaskView): MenuEntry => ({
+      id: task.id,
+      label: task.name,
+      icon: <IconThinkOutline16 size={14} />,
+    })
+    const currentTasks = visible.filter((task) => task.scope !== 'global')
+    const globalTasks = visible.filter((task) => task.scope === 'global')
+    if (currentTasks.length > 0) {
+      out.push({ type: 'label', id: 'label-workspace', text: t('groupWorkspace') })
+      for (const task of currentTasks) out.push(entry(task))
+    }
+    if (globalTasks.length > 0) {
+      out.push({ type: 'label', id: 'label-global', text: t('groupGlobal') })
+      for (const task of globalTasks) out.push(entry(task))
+    }
+    if (out.length === 0) {
+      out.push({ type: 'label', id: 'label-empty', text: t('noVisibleTasks') })
+    }
+    return out
+  }, [visible, t])
+
+  const taskFooter: MenuEntry[] = [
+    {
+      id: EDIT_CONFIG,
+      label: t('editConfig'),
+      icon: <IconSettingsOutline16 size={14} />,
+    },
+  ]
+
+  const handleTaskSelect = (id: string): void => {
+    if (id === EDIT_CONFIG) {
+      setTaskMenuOpen(false)
+      // Re-pull before opening the dialog (host-side mutations may exist).
+      taskRunnerStore.bumpRevision()
+      taskRunnerStore.setDialogOpen(true)
+      return
+    }
+    taskRunnerStore.setSelected(id)
+    setTaskMenuOpen(false)
+  }
+
   const create = (): void => {
     const trimmed = path.trim()
     if (trimmed.length === 0) return
@@ -242,33 +310,49 @@ export function HeroRunControl({
         </div>
       ) : null}
       <div className={css.control}>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<IconPlayOutline16 size={14} />}
-          title={t('run')}
-          aria-label={t('run')}
-          disabled={selected === undefined || busy}
-          onClick={run}
-        >
-          {t('run')}
-        </Button>
-        <button
-          type="button"
-          className={css.pickerTrigger}
-          title={selected?.name}
-          onClick={() => {
-            // Re-pull before opening the dialog (host-side mutations may
-            // have happened through the LLM tool while this page sat open).
+        <RunCombo
+          icon={
+            selected === undefined ? undefined : selected.type === 'llm' ? (
+              <IconThinkOutline16 size={14} />
+            ) : (
+              <IconCodeOutline16 size={14} />
+            )
+          }
+          name={selected?.name}
+          placeholder={t('selectTask')}
+          open={taskMenuOpen}
+          runEnabled={selected !== undefined && !busy}
+          pickLabel={t('selectTask')}
+          runLabel={() =>
+            selected === undefined ? t('noVisibleTasks') : t('runTaskHint', { name: selected.name })
+          }
+          runTooltipDisabled={busy}
+          runAriaLabel={t('run')}
+          onPick={() => {
+            // Re-pull before showing (host-side mutations may exist).
             taskRunnerStore.bumpRevision()
-            taskRunnerStore.setDialogOpen(true)
+            setTaskMenuOpen((value) => !value)
           }}
-        >
-          <span className={css.pickerName}>{selected?.name ?? t('selectTask')}</span>
-          <IconChevronDownOutline14 />
-        </button>
+          onRun={run}
+          triggerRef={taskTriggerRef}
+        />
         {toastNode}
       </div>
+      <SearchPickerMenu
+        open={taskMenuOpen}
+        getAnchorRect={() => taskTriggerRef.current?.getBoundingClientRect() ?? null}
+        items={taskItems}
+        footer={taskFooter}
+        selectedId={selected?.id}
+        onSelect={handleTaskSelect}
+        onClose={() => {
+          setTaskMenuOpen(false)
+        }}
+        searchPlaceholder={t('searchPlaceholder')}
+        emptyText={t('noVisibleTasks')}
+        dense
+        triggerRef={taskTriggerRef}
+      />
     </>
   )
 }

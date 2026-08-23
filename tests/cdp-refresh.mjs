@@ -113,13 +113,17 @@ async function main() {
   // the store caches the pre-mutation list, then mutate on the host side.
   await evaluate(`(() => {
     const run = document.querySelector('[aria-label="运行"]')
-    const trig = [...document.querySelectorAll('button')].find(b => {
-      if (b === run || !b.querySelector('svg')) return false
-      const r = b.getBoundingClientRect()
-      const rr = run.getBoundingClientRect()
-      return Math.abs(r.top - rr.top) < 40 && r.left > rr.left
-    })
+    const trig = run?.parentElement?.querySelector('[aria-expanded]')
     if (trig) trig.click()
+    return true
+  })()`)
+  await sleep(700)
+  // The picker opens the task menu; the dialog opens from its footer entry.
+  await evaluate(`(() => {
+    const entry = [...document.querySelectorAll('[role="menu"] button')].find(
+      b => b.innerText.includes('编辑配置'),
+    )
+    if (entry) entry.click()
     return true
   })()`)
   await sleep(900)
@@ -142,17 +146,20 @@ async function main() {
   // Reopen the picker/dialog — the open action must re-pull and show it.
   const clickResult = await evaluate(`(() => {
     const run = document.querySelector('[aria-label="运行"]')
-    const trig = [...document.querySelectorAll('button')].find(b => {
-      if (b === run || !b.querySelector('svg')) return false
-      const r = b.getBoundingClientRect()
-      const rr = run.getBoundingClientRect()
-      return Math.abs(r.top - rr.top) < 40 && r.left > rr.left
-    })
+    const trig = run?.parentElement?.querySelector('[aria-expanded]')
     if (!trig) return { found: false }
     trig.click()
     return { found: true }
   })()`)
   results.reopenClick = clickResult
+  await sleep(700)
+  await evaluate(`(() => {
+    const entry = [...document.querySelectorAll('[role="menu"] button')].find(
+      b => b.innerText.includes('编辑配置'),
+    )
+    if (entry) entry.click()
+    return true
+  })()`)
   await sleep(1200)
   results.dialogCountAfter = await evaluate(`document.querySelectorAll('[role="dialog"]').length`)
   results.bodyTextHead = String(

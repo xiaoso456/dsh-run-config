@@ -1,0 +1,108 @@
+/**
+ * Combined run control surface: a borderless 28px toolbar-style group whose
+ * picker segment shows the task type icon + name + chevron, and whose run
+ * segment is an icon-only accent button. No outer border and no hairline:
+ * hover fills the segment under the pointer (the shared container keeps the
+ * rounded clip so fills never spill).
+ */
+
+.combo {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 0 6px 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+  transition: background 120ms ease-out;
+}
+
+.pick:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.pickOpen {
+  background: var(--dsw-alias-fill-l1);
+  color: var(--dsw-alias-label-primary);
+}
+
+.pick:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: -2px;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  max-width: 170px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  flex: none;
+  transition: transform 120ms ease-out;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--dsw-alias-accent);
+  cursor: pointer;
+  transition: background 120ms ease-out;
+}
+
+.run:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.run:focus-visible {
+  outline: 2px solid var(--dsw-alias-accent);
+  outline-offset: -2px;
+}
+
+.run:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick,
+  .chevron,
+  .run {
+    transition: none;
+    animation: none;
+  }
+}

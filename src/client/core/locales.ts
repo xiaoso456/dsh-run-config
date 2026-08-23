@@ -11,6 +11,7 @@ export const NS = 'task-runner' as const
 
 export type TaskRunnerLocaleKey =
   | 'run'
+  | 'runTaskHint'
   | 'selectTask'
   | 'groupGlobal'
   | 'groupWorkspace'
@@ -63,6 +64,7 @@ export type TaskRunnerLocaleKey =
 /** Simplified Chinese copy. */
 export const zh: Record<TaskRunnerLocaleKey, string> = {
   run: '运行',
+  runTaskHint: '在当前工作区运行任务「{name}」',
   selectTask: '选择任务',
   groupGlobal: '全局',
   groupWorkspace: '当前工作区',
@@ -116,6 +118,7 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
 /** English copy. */
 export const en: Record<TaskRunnerLocaleKey, string> = {
   run: 'Run',
+  runTaskHint: 'Run task "{name}" in the current workspace',
   selectTask: 'Select a task',
   groupGlobal: 'Global',
   groupWorkspace: 'Current workspace',

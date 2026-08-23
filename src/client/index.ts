@@ -51,13 +51,16 @@ export function apply(ctx: ClientContext): void {
   // in the user's language (fire-and-forget; the gate falls back to 'en').
   void rpc.call('client/locale', { locale: getActiveLocale() }).catch(() => {})
 
-  // Session header: ▶ run + task picker + ⚙ config (right-aligned utilities).
+  // Session header: ▶ run + task picker + ⚙ config. Registered into the
+  // header UTILITIES cluster with an order BELOW the official "Session log"
+  // button (default 0), so the run control sits directly left of the log
+  // entry, on the same row.
   ctx.slots.inject('conversation.session.header.utilities', () =>
     ctx.slots.register(
       {
         name: 'conversation.session.header.utilities',
         id: 'task-runner',
-        order: 30,
+        order: -10,
         locale: NS,
         inject: (): RunControlInjected => ({ rpc, getActiveLocale }),
       },

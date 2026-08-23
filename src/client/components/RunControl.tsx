@@ -16,11 +16,8 @@
 // Type-only: the ui-conversation standard-kit merge (useInput / inputActions).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
-  Button,
   IconCheckOutline16,
-  IconChevronDownOutline14,
   IconCodeOutline16,
-  IconPlayOutline16,
   IconSettingsOutline16,
   IconThinkOutline16,
   IconWarningOutline16,
@@ -33,6 +30,7 @@ import { taskRunnerStore } from '../core/store.ts'
 import type { TaskView } from '../core/types.ts'
 import { useTaskLoader } from '../core/useTaskLoader.ts'
 import { useToast } from '../core/useToast.tsx'
+import { RunCombo } from './RunCombo.tsx'
 import css from './RunControl.module.css'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
 
@@ -167,54 +165,51 @@ export function RunControl({
 
   return (
     <div className={css.control}>
-      <Button
-        variant="primary"
-        size="sm"
-        icon={<IconPlayOutline16 size={14} />}
-        title={t('run')}
-        aria-label={t('run')}
-        disabled={selected === undefined || busy}
-        onClick={() => {
+      <RunCombo
+        icon={
+          selected === undefined ? undefined : selected.type === 'llm' ? (
+            <IconThinkOutline16 size={14} />
+          ) : (
+            <IconCodeOutline16 size={14} />
+          )
+        }
+        name={selected?.name}
+        placeholder={t('selectTask')}
+        open={open}
+        runEnabled={selected !== undefined && !busy}
+        pickLabel={t('selectTask')}
+        runLabel={() =>
+          selected === undefined ? t('noVisibleTasks') : t('runTaskHint', { name: selected.name })
+        }
+        runTooltipDisabled={busy}
+        runAriaLabel={t('run')}
+        onPick={() => {
+          // Refresh on open: the LLM tool (task_runner_config) can mutate
+          // tasks on the host without any client signal, so the picker must
+          // re-pull before showing (bump → useTaskLoader reloads).
+          if (!open) taskRunnerStore.bumpRevision()
+          setOpen(!open)
+        }}
+        onRun={() => {
           runTask(selected)
         }}
-      >
-        {t('run')}
-      </Button>
-      <div className={css.picker}>
-        <button
-          ref={triggerRef}
-          type="button"
-          className={open ? `${css.pickerTrigger} ${css.pickerTriggerOpen}` : css.pickerTrigger}
-          aria-expanded={open}
-          onClick={() => {
-            // Refresh on open: the LLM tool (task_runner_config) can mutate
-            // tasks on the host without any client signal, so the picker must
-            // re-pull before showing (bump → useTaskLoader reloads).
-            if (!open) taskRunnerStore.bumpRevision()
-            setOpen(!open)
-          }}
-        >
-          <span className={css.pickerName} title={selected?.name}>
-            {selected?.name ?? t('selectTask')}
-          </span>
-          <IconChevronDownOutline14 className={open ? css.chevronOpen : undefined} />
-        </button>
-        <SearchPickerMenu
-          open={open}
-          getAnchorRect={() => triggerRef.current?.getBoundingClientRect() ?? null}
-          items={items}
-          footer={footer}
-          selectedId={selected?.id}
-          onSelect={handleSelect}
-          onClose={() => {
-            setOpen(false)
-          }}
-          searchPlaceholder={t('searchPlaceholder')}
-          emptyText={t('noVisibleTasks')}
-          dense
-          triggerRef={triggerRef}
-        />
-      </div>
+        triggerRef={triggerRef}
+      />
+      <SearchPickerMenu
+        open={open}
+        getAnchorRect={() => triggerRef.current?.getBoundingClientRect() ?? null}
+        items={items}
+        footer={footer}
+        selectedId={selected?.id}
+        onSelect={handleSelect}
+        onClose={() => {
+          setOpen(false)
+        }}
+        searchPlaceholder={t('searchPlaceholder')}
+        emptyText={t('noVisibleTasks')}
+        dense
+        triggerRef={triggerRef}
+      />
       {toastNode}
     </div>
   )
