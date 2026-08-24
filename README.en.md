@@ -42,6 +42,14 @@ can pick it from the session header and run it with one click.
 <!-- TODO: screenshot (suggested: the model creating a command configuration in the session, with the approval prompt) -->
 ![Model creating a configuration](docs/images/llm-create.png)
 
+## Recommended environment & setup
+
+- **Run under full access**: use this plugin with the `danger-full-access`
+  preset to avoid sandbox errors that can occur when running command
+  configurations in some scenarios.
+- **Background-task manager plugin**: [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)
+  provides a background-task page to inspect and manually terminate tasks.
+
 ## Installation
 
 ### From npm (recommended)

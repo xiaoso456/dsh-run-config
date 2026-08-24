@@ -27,6 +27,11 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 
 ![image-20260823222125260](docs/images/llm-create.png)
 
+## 推荐环境与配置
+
+- **完全权限模式**：建议在 `danger-full-access`（完全权限）下使用本插件，可避免部分场景下运行命令配置出现的沙箱错误。
+- **任务后台管理插件**：[DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 提供后台任务页，可查看并手动终止后台任务。
+
 ## 安装
 
 ### 从 npm 安装（推荐）
