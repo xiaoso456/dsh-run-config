@@ -101,7 +101,12 @@ export function RunControl({
         return
       }
       inputActions.setDraft(prompt)
-      inputActions.submit()
+      if (task.autoSend !== false) {
+        inputActions.submit()
+      } else {
+        // autoSend off: fill the composer and let the user edit before sending.
+        showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
+      }
       return
     }
     setBusy(true)

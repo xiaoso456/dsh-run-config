@@ -62,6 +62,7 @@ interface Draft {
   scope: TaskScope
   workspacePath: string
   llmPrompt: string
+  autoSend: boolean
   command: string
   notifyLlm: boolean
 }
@@ -74,6 +75,7 @@ function toDraft(task: TaskView): Draft {
     scope: task.scope,
     workspacePath: task.workspacePath ?? '',
     llmPrompt: task.llmPrompt ?? '',
+    autoSend: task.autoSend ?? true,
     command: task.command ?? '',
     notifyLlm: task.notifyLlm ?? true,
   }
@@ -87,6 +89,7 @@ function sameAsTask(draft: Draft, task: TaskView): boolean {
     draft.scope === task.scope &&
     (draft.workspacePath || undefined) === task.workspacePath &&
     (draft.llmPrompt || undefined) === task.llmPrompt &&
+    draft.autoSend === (task.autoSend ?? true) &&
     (draft.command || undefined) === task.command &&
     draft.notifyLlm === (task.notifyLlm ?? true)
   )
@@ -260,7 +263,10 @@ export function RunConfigDialog({
       scope: draft.scope,
     }
     if (draft.scope === 'workspace') patch.workspacePath = draft.workspacePath
-    if (draft.type === 'llm') patch.llmPrompt = draft.llmPrompt
+    if (draft.type === 'llm') {
+      patch.llmPrompt = draft.llmPrompt
+      patch.autoSend = draft.autoSend
+    }
     if (draft.type === 'command') {
       patch.command = draft.command
       patch.notifyLlm = draft.notifyLlm
@@ -604,17 +610,38 @@ export function RunConfigDialog({
                 </div>
               ) : null}
               {draft.type === 'llm' ? (
-                <label className={`${css.field} ${css.fieldReveal}`}>
-                  <span className={css.fieldLabel}>{t('fieldPrompt')}</span>
-                  <textarea
-                    className={`${css.input} ${css.textarea}`}
-                    value={draft.llmPrompt}
-                    onChange={(event) => {
-                      patchDraft({ llmPrompt: event.target.value })
-                    }}
-                  />
-                  <span className={css.fieldHint}>{t('fieldPromptHint')}</span>
-                </label>
+                <>
+                  <label className={`${css.field} ${css.fieldReveal}`}>
+                    <span className={css.fieldLabel}>{t('fieldPrompt')}</span>
+                    <textarea
+                      className={`${css.input} ${css.textarea}`}
+                      value={draft.llmPrompt}
+                      onChange={(event) => {
+                        patchDraft({ llmPrompt: event.target.value })
+                      }}
+                    />
+                    <span className={css.fieldHint}>{t('fieldPromptHint')}</span>
+                  </label>
+                  <div className={css.switchRow}>
+                    <label className={css.switchLabel}>
+                      <input
+                        type="checkbox"
+                        className={css.switchInput}
+                        checked={draft.autoSend}
+                        onChange={(event) => {
+                          patchDraft({ autoSend: event.target.checked })
+                        }}
+                      />
+                      <span className={css.switchText}>
+                        <span className={css.switchTitle}>{t('fieldAutoSend')}</span>
+                        <span className={css.switchHint}>{t('fieldAutoSendHint')}</span>
+                      </span>
+                      <span className={css.switchTrack} aria-hidden="true">
+                        <span className={css.switchThumb} />
+                      </span>
+                    </label>
+                  </div>
+                </>
               ) : (
                 <>
                   <label className={`${css.field} ${css.fieldReveal}`}>

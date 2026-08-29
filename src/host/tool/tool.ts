@@ -35,6 +35,8 @@ export interface TaskRunnerToolArgs {
   workspacePath?: string
   /** create/update (type=llm): the prompt sent to the LLM on run. */
   llmPrompt?: string
+  /** create/update (type=llm): whether running sends the prompt immediately (default true; false fills the composer only). */
+  autoSend?: boolean
   /** create/update (type=command): the bash command to run. */
   command?: string
   /** create/update (type=command): notify the session LLM on completion. */
@@ -59,6 +61,7 @@ export const TASK_JSON_SCHEMA = {
     scope: { type: 'string', required: true },
     workspacePath: { type: 'string' },
     llmPrompt: { type: 'string' },
+    autoSend: { type: 'boolean' },
     command: { type: 'string' },
     notifyLlm: { type: 'boolean' },
     createdAt: { type: 'string', required: true },
@@ -121,6 +124,11 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
           type: 'string',
           description: 'The prompt sent to the session; required for type=llm.',
         },
+        autoSend: {
+          type: 'boolean',
+          description:
+            'With type=llm: whether running sends the prompt immediately (default true; false fills the composer only).',
+        },
         command: {
           type: 'string',
           description:
@@ -170,6 +178,7 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
               ...(args.description !== undefined ? { description: args.description } : {}),
               ...(args.workspacePath !== undefined ? { workspacePath: args.workspacePath } : {}),
               ...(args.llmPrompt !== undefined ? { llmPrompt: args.llmPrompt } : {}),
+              ...(args.autoSend !== undefined ? { autoSend: args.autoSend } : {}),
               ...(args.command !== undefined ? { command: args.command } : {}),
               ...(args.notifyLlm !== undefined ? { notifyLlm: args.notifyLlm } : {}),
             })
@@ -184,6 +193,7 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
             if (args.scope !== undefined) patch.scope = args.scope
             if (args.workspacePath !== undefined) patch.workspacePath = args.workspacePath
             if (args.llmPrompt !== undefined) patch.llmPrompt = args.llmPrompt
+            if (args.autoSend !== undefined) patch.autoSend = args.autoSend
             if (args.command !== undefined) patch.command = args.command
             if (args.notifyLlm !== undefined) patch.notifyLlm = args.notifyLlm
             const task = await store.update(args.id, patch)

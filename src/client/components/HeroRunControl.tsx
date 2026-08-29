@@ -165,7 +165,8 @@ export function HeroRunControl({
     if (actions !== undefined) {
       taskRunnerStore.consumePendingRun()
       actions.setDraft(task.llmPrompt ?? '')
-      actions.submit()
+      if (task.autoSend !== false) actions.submit()
+      else showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
       return
     }
     const off = subscribeCurrentSession(() => {
@@ -174,7 +175,8 @@ export function HeroRunControl({
       off()
       taskRunnerStore.consumePendingRun()
       current.setDraft(task.llmPrompt ?? '')
-      current.submit()
+      if (task.autoSend !== false) current.submit()
+      else showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
     })
     return off
   }, [snap.pendingRunId, visible, getCurrentInputActions, subscribeCurrentSession])

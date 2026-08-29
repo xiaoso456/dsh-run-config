@@ -20,6 +20,7 @@ export type TaskRunnerLocaleKey =
   | 'noVisibleTasks'
   | 'started'
   | 'runFailed'
+  | 'filledIn'
   | 'config'
   | 'heroAddWorkspace'
   | 'heroPathPlaceholder'
@@ -35,6 +36,8 @@ export type TaskRunnerLocaleKey =
   | 'fieldWorkspace'
   | 'fieldPrompt'
   | 'fieldPromptHint'
+  | 'fieldAutoSend'
+  | 'fieldAutoSendHint'
   | 'fieldCommand'
   | 'fieldCommandHint'
   | 'fieldNotifyLlm'
@@ -73,6 +76,7 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   noVisibleTasks: '没有可见任务运行配置',
   started: '已启动 {id}',
   runFailed: '运行失败：{message}',
+  filledIn: '已填入输入框，可修改后发送',
   config: '任务运行配置',
   heroAddWorkspace: '添加工作区…',
   heroPathPlaceholder: '输入工作区路径',
@@ -88,6 +92,8 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   fieldWorkspace: '工作区',
   fieldPrompt: 'Prompt',
   fieldPromptHint: '运行后自动填入输入框并发送',
+  fieldAutoSend: '运行后直接发送',
+  fieldAutoSendHint: '关闭后，点击运行仅填入输入框，可修改后发送',
   fieldCommand: '命令',
   fieldCommandHint: '在任务配置所属工作区执行的 Shell 命令',
   fieldNotifyLlm: '完成后通知 LLM',
@@ -127,6 +133,7 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   noVisibleTasks: 'No visible run configurations',
   started: 'Started {id}',
   runFailed: 'Run failed: {message}',
+  filledIn: 'Filled into the composer — edit and send when ready',
   config: 'Run configurations',
   heroAddWorkspace: 'Add workspace…',
   heroPathPlaceholder: 'Enter a workspace path',
@@ -142,6 +149,8 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   fieldWorkspace: 'Workspace',
   fieldPrompt: 'Prompt',
   fieldPromptHint: 'Fills the composer and submits when run',
+  fieldAutoSend: 'Send immediately on run',
+  fieldAutoSendHint: 'When off, running only fills the composer — edit and send when ready',
   fieldCommand: 'Command',
   fieldCommandHint: 'Shell command run in the configuration workspace',
   fieldNotifyLlm: 'Notify the LLM when finished',

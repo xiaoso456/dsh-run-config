@@ -38,6 +38,8 @@ export interface TaskRecord {
   workspacePath?: string
   /** type === 'llm': the prompt sent to the LLM when the task runs. */
   llmPrompt?: string
+  /** type === 'llm': whether running sends the prompt immediately (default true; false fills the composer only). */
+  autoSend?: boolean
   /** type === 'command': the bash command executed in the background. */
   command?: string
   /** type === 'command': notify the session LLM when the job finishes (default true). */
@@ -55,6 +57,7 @@ export const taskRecordSchema = z.object({
   scope: z.enum(['global', 'workspace']),
   workspacePath: z.string().optional(),
   llmPrompt: z.string().optional(),
+  autoSend: z.boolean().optional(),
   command: z.string().optional(),
   notifyLlm: z.boolean().optional(),
   createdAt: z.string(),
@@ -69,6 +72,8 @@ export interface TaskCreateInput {
   scope: TaskScope
   workspacePath?: string
   llmPrompt?: string
+  /** type === 'llm': whether running sends the prompt immediately (default true). */
+  autoSend?: boolean
   command?: string
   notifyLlm?: boolean
 }
@@ -122,6 +127,7 @@ export async function validateTaskInput(input: TaskCreateInput): Promise<TaskCre
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(workspacePath !== undefined ? { workspacePath } : {}),
     ...(input.llmPrompt !== undefined ? { llmPrompt: input.llmPrompt } : {}),
+    ...(input.autoSend !== undefined ? { autoSend: input.autoSend } : {}),
     ...(input.command !== undefined ? { command: input.command } : {}),
     ...(input.notifyLlm !== undefined ? { notifyLlm: input.notifyLlm } : {}),
   }
@@ -223,6 +229,7 @@ export class TaskStore {
       workspacePath:
         patch.workspacePath !== undefined ? patch.workspacePath : current.workspacePath,
       llmPrompt: patch.llmPrompt !== undefined ? patch.llmPrompt : current.llmPrompt,
+      autoSend: patch.autoSend !== undefined ? patch.autoSend : current.autoSend,
       command: patch.command !== undefined ? patch.command : current.command,
       notifyLlm: patch.notifyLlm !== undefined ? patch.notifyLlm : current.notifyLlm,
     }

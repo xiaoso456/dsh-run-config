@@ -21,6 +21,8 @@ export interface TaskView {
   scope: TaskScope
   workspacePath?: string
   llmPrompt?: string
+  /** type === 'llm': whether running sends the prompt immediately (default true; false fills the composer only). */
+  autoSend?: boolean
   command?: string
   notifyLlm?: boolean
   createdAt: string
@@ -35,6 +37,8 @@ export interface TaskCreateInput {
   scope: TaskScope
   workspacePath?: string
   llmPrompt?: string
+  /** type === 'llm': whether running sends the prompt immediately (default true). */
+  autoSend?: boolean
   command?: string
   notifyLlm?: boolean
 }

@@ -85,6 +85,27 @@ describe('validateTaskInput', () => {
     })
     expect(input.notifyLlm).toBeUndefined()
   })
+
+  it('passes through autoSend for llm tasks', async () => {
+    const on = await validateTaskInput({
+      name: 't',
+      type: 'llm',
+      scope: 'global',
+      llmPrompt: 'p',
+      autoSend: false,
+    })
+    expect(on.autoSend).toBe(false)
+  })
+
+  it('defaults autoSend to undefined (client applies true at run time)', async () => {
+    const input = await validateTaskInput({
+      name: 't',
+      type: 'llm',
+      scope: 'global',
+      llmPrompt: 'p',
+    })
+    expect(input.autoSend).toBeUndefined()
+  })
 })
 
 describe('canonicalizeWorkspacePath', () => {
