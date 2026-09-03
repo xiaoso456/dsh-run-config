@@ -9,17 +9,12 @@
  * the reported bug: "value.tasks[1].description" is not a declared property
  * (additionalProperties: false).
  *
- * Not part of `pnpm test` (imports the harness's dsh-tools by absolute
- * path); run manually:
+ * Not part of `pnpm test` (imports the harness's dsh-tools from the project
+ * node_modules); run manually:
  *   node --experimental-strip-types tests/verify-tool-schema.mjs
  */
-import { pathToFileURL } from 'node:url'
+import { defineTool, validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import { TASK_JSON_SCHEMA } from '../src/host/tool/tool.ts'
-
-const dshToolsUrl = pathToFileURL(
-  'D:/program/nvm/v22.23.2/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools/lib/index.js',
-).href
-const { defineTool, validateJsonSchemaValue } = await import(dshToolsUrl)
 
 /** Compile an output spec exactly like defineTool does at registration. */
 function compileOutputSpec(schema) {

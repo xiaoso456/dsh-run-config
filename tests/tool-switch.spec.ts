@@ -6,11 +6,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import {
-  type SettingsNamespace,
-  SettingsProvider,
-  settingsNamespace,
-} from '@deepseek-ai/dsh-settings'
+import { type SettingsNamespace, SettingsProvider } from '@deepseek-ai/dsh-settings'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { describe, expect, it } from 'vitest'
@@ -21,6 +17,9 @@ import {
 } from '../src/host/settings.ts'
 import type { TaskStore } from '../src/host/tasks.ts'
 import { registerTaskRunnerTool } from '../src/host/tool/tool.ts'
+
+/** The plugin's settings namespace, as a typed literal. */
+const NS = 'task-runner' as SettingsNamespace
 
 /** A minimal settings provider implementing the three primitives. */
 class BareProvider extends SettingsProvider {
@@ -77,7 +76,7 @@ describe('task_run_config tool switch', () => {
     expect(ctx.tools.get('task_run_config')).toBeDefined()
 
     // Switch off: the tool disappears.
-    await ctx.settings.update(settingsNamespace('task-runner'), {
+    await ctx.settings.update(NS, {
       toolEnabled: false,
     })
     await tick()
@@ -85,7 +84,7 @@ describe('task_run_config tool switch', () => {
     expect(ctx.tools.get('task_run_config')).toBeUndefined()
 
     // Switch back on: the tool returns.
-    await ctx.settings.update(settingsNamespace('task-runner'), {
+    await ctx.settings.update(NS, {
       toolEnabled: true,
     })
     await tick()

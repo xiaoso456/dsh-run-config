@@ -13,7 +13,6 @@
  * @module @xiaoso/dsh-run-config/client/HeroRunControl
  */
 
-import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
   IconCheckOutline16,
   IconCodeOutline16,
@@ -24,6 +23,7 @@ import {
   IconWarningOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { NS } from '../core/locales.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'

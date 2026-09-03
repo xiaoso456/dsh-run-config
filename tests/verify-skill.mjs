@@ -1,22 +1,17 @@
 /**
  * Runtime verification against the REAL dsh-skill registry (imported from the
- * harness install by absolute path, like verify-tool-schema.mjs): mounting
- * SkillRegistry on a cordis Context, registering the run-configuration skill
- * through our plugin code, and asserting it appears in the catalog and loads
- * its full body on demand.
+ * project node_modules, like verify-tool-schema.mjs): mounting SkillRegistry
+ * on a cordis Context, registering the run-configuration skill through our
+ * plugin code, and asserting it appears in the catalog and loads its full
+ * body on demand.
  *
  * Not part of `pnpm test`; run manually:
  *   node --experimental-strip-types tests/verify-skill.mjs
  */
 
-import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
+import { SkillRegistry } from '@deepseek-ai/dsh-skill'
 import { RUN_CONFIGURATION_SKILL, registerRunConfigurationSkill } from '../src/host/skill.ts'
-
-const dshSkillUrl = pathToFileURL(
-  'D:/program/nvm/v22.23.2/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-skill/lib/index.js',
-).href
-const { SkillRegistry } = await import(dshSkillUrl)
 
 const ctx = new Context()
 await ctx.plugin(SkillRegistry)

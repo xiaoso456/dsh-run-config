@@ -7,17 +7,26 @@
  * @module @xiaoso/dsh-run-config/client
  */
 
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Type-only: the `ctx.workspaces` Context merge (pure Workspace Controller).
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: the `ctx.locale` Context merge (dictionary registration).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: the session-header slot declaration + standard kit (inputActions).
 // Type-only: the hero slot declaration (EmptyWorkspaceOwnerProps).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // Type-only: the `shell.overlay` slot declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+// Type-only: the `ctx.slots` Context merge (renderer-owned UI registry).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: the session standard props (sessionId / useSessions / useSession)
+// and the ui-session service merge.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // Type-only: the `ctx.settingsScope` Context merge (the scope binder).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: the `ctx.uiWorkspace` Context merge (workspace navigation).
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import {
   type HeroInputActions,
   HeroRunControl,
@@ -32,8 +41,16 @@ import { RunControl, type RunControlInjected } from './components/RunControl.tsx
 import { en, NS, zh } from './core/locales.ts'
 import { createTaskRunnerRpc } from './core/rpc.ts'
 
-/** Required services: slots (registration), locale, the wire, the settings scope binder, and sessions/workspaces (hero connect + run handoff). */
-export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'sessions', 'workspaces']
+/** Required services: slots (registration), locale, the wire, the settings scope binder, the pure workspace controller, workspace navigation, and sessions (hero connect + run handoff). */
+export const inject = [
+  'slots',
+  'locale',
+  'connection',
+  'settingsScope',
+  'sessions',
+  'workspaces',
+  'uiWorkspace',
+]
 
 /**
  * Mount the task-runner UI.
@@ -107,7 +124,7 @@ export function apply(ctx: ClientContext): void {
         locale: NS,
         inject: (): HeroRunControlInjected => ({
           rpc,
-          connectWorkspace: (workspaceId) => ctx.workspaces.connectWorkspace(workspaceId),
+          connectWorkspace: (workspaceId) => ctx.uiWorkspace.connectWorkspace(workspaceId),
           createWorkspace: (input) => ctx.workspaces.create({ path: input }),
           getCurrentInputActions: () =>
             sessions.currentProvideInfo.getSnapshot().props.inputActions as

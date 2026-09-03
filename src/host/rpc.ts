@@ -7,9 +7,9 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-// Type-only: the `ctx.connection` Context merge (HostConnectionHandle).
-import type {} from '@deepseek-ai/dsh-client-connection'
-import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
+// Type-only: the `ctx.connection` Context merge (HostConnectionHandle) and
+// the channel result shape.
+import type { ConnectionRpcResult } from '@deepseek-ai/dsh-client-connection'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { runCommandTask } from './command.ts'
 import { setApprovalLocale } from './locale.ts'
@@ -17,6 +17,9 @@ import type { TaskPatch, TaskStore } from './tasks.ts'
 
 /** The logical channel serving this plugin's client side. */
 export const TASK_RUNNER_CHANNEL = '/task-runner'
+
+/** The channel result shape: `{ ok, value }` / `{ ok, error }`. */
+type RpcResult<T> = ConnectionRpcResult<T>
 
 function ok(value: unknown): RpcResult<unknown> {
   return { ok: true, value }
@@ -32,17 +35,13 @@ function fail(message: string): RpcResult<unknown> {
  * @param store - the open task store.
  */
 export function registerTaskRunnerRpc(ctx: Context, store: TaskStore): void {
-  const dispose = ctx.connection.rpc.handle(
-    TASK_RUNNER_CHANNEL,
-    async (endpoint, payload) => {
-      try {
-        return await dispatch(ctx, store, endpoint, payload)
-      } catch (error) {
-        return fail(error instanceof Error ? error.message : String(error))
-      }
-    },
-    { authority: 'loopback' },
-  )
+  const dispose = ctx.connection.rpc.handle(TASK_RUNNER_CHANNEL, async (endpoint, payload) => {
+    try {
+      return await dispatch(ctx, store, endpoint, payload)
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : String(error))
+    }
+  })
   ctx.effect(
     () => () => {
       void dispose()
