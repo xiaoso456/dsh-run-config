@@ -54,19 +54,8 @@ can pick it from the session header and run it with one click.
 
 ### From npm (recommended)
 
-Plugin versions track DeepSeek Harness releases:
-
-| Plugin version | npm dist-tag | Compatible dsh |
-| --- | --- | --- |
-| 0.1.3 | `latest` | dsh v0.1.1-rc.2 |
-| 0.1.4-rc.1 | `next` | dsh v0.1.2-rc.1 |
-
 ```sh
-# Stable (for dsh v0.1.1-rc.2)
 dsh plugin --profile web add @xiaoso/dsh-run-config
-
-# Next (for dsh v0.1.2-rc.1)
-dsh plugin --profile web add @xiaoso/dsh-run-config@next
 
 dsh web
 ```
@@ -91,7 +80,7 @@ profile's `pnpm-workspace.yaml`.
 
 - **Node.js** ≥ 22 (per the `engines` field in `package.json`)
 - **Git Bash** (recommended): recommended shell environment on Windows
-- Built for DeepSeek Harness `dsh` v0.1.2-rc.1 (next plugin release; pre-release, APIs may change); the stable plugin (`latest`) targets dsh v0.1.1-rc.2
+- Built for DeepSeek Harness `dsh` v0.1.2-rc.1
 
 ## Build
 

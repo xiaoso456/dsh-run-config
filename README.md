@@ -36,19 +36,8 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 
 ### 从 npm 安装（推荐）
 
-插件版本与 DeepSeek Harness 版本对应：
-
-| 插件版本 | npm dist-tag | 适用 dsh 版本 |
-| --- | --- | --- |
-| 0.1.3 | `latest` | dsh v0.1.1-rc.2 |
-| 0.1.4-rc.1 | `next` | dsh v0.1.2-rc.1 |
-
 ```sh
-# 稳定版（适用于 dsh v0.1.1-rc.2）
 dsh plugin --profile web add @xiaoso/dsh-run-config
-
-# next 版（适用于 dsh v0.1.2-rc.1）
-dsh plugin --profile web add @xiaoso/dsh-run-config@next
 
 dsh web
 ```
@@ -71,7 +60,7 @@ git 安装会跑本包的 `prepare` 脚本构建产物；pnpm ≥10 会在首次
 
 - **Node.js** ≥ 22（`package.json` 的 `engines` 要求）
 - **Git Bash**（推荐）：Windows 上推荐使用 Git Bash 作为 shell 环境
-- 适用于 DeepSeek Harness `dsh` v0.1.2-rc.1（next 版插件，pre-release，接口可能变动）；稳定版插件（`latest`）适用于 dsh v0.1.1-rc.2
+- 适用于 DeepSeek Harness `dsh` v0.1.2-rc.1
 
 ## 构建
 
