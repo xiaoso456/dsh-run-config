@@ -4,6 +4,7 @@
  * tests/screenshots/combo-{static,tooltip}.png.
  */
 import { writeFileSync } from 'node:fs'
+import { authenticatedUrl } from './lib/web-session.mjs'
 
 const CDP_HTTP = 'http://127.0.0.1:9222'
 const BASE = 'http://127.0.0.1:3190'
@@ -61,7 +62,7 @@ async function main() {
     deviceScaleFactor: 1,
     mobile: false,
   })
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   for (let i = 0; i < 60; i++) {
     await sleep(2000)

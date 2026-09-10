@@ -1,53 +1,116 @@
 /**
- * The `/task-runner` Connection RPC channel: the browser half calls these
- * endpoints for task CRUD and command runs. Endpoints are plain JSON; every
- * handler returns the `{ ok, value }` / `{ ok, error }` result shape the
- * channel contract requires.
+ * The task-runner browser RPC: one exact Fetch route per endpoint on the
+ * Connection shared API channel (`/api/task-runner/<endpoint>`). The carrier
+ * owning `/api` applies its Host/Origin + browser-session policy before the
+ * handler runs, and every handler returns the standard
+ * `{ type, rpcId, result }` response envelope built from the same
+ * `clientRequestSchema` the carriers use.
+ *
+ * Private channel prefixes (`connection.rpc.handle`) are gone on purpose: the
+ * service mounts them on the *registering* context's `webServer`, which dsh
+ * 0.1.5 no longer resolves (the Connection plugin dropped `webServer` from its
+ * own inject, so the shadow context it hands back fails the inject guard).
  * @module @xiaoso/dsh-run-config/rpc
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-// Type-only: the `ctx.connection` Context merge (HostConnectionHandle) and
-// the channel result shape.
 import type { ConnectionRpcResult } from '@deepseek-ai/dsh-client-connection'
+// Value imports: the shared request envelope parser and the rpc-id brand are
+// what the physical carriers use, so our routes decode exactly like a channel.
+import { clientRequestSchema, RpcId } from '@deepseek-ai/dsh-client-connection'
 import type { SessionId } from '@deepseek-ai/dsh-session'
+import {
+  TASK_RUNNER_ENDPOINTS,
+  taskRunnerEndpointName,
+  taskRunnerRoutePath,
+} from '../shared/wire.ts'
 import { runCommandTask } from './command.ts'
 import { setApprovalLocale } from './locale.ts'
 import type { TaskPatch, TaskStore } from './tasks.ts'
 
-/** The logical channel serving this plugin's client side. */
-export const TASK_RUNNER_CHANNEL = '/task-runner'
-
 /** The channel result shape: `{ ok, value }` / `{ ok, error }`. */
 type RpcResult<T> = ConnectionRpcResult<T>
 
+/**
+ * Register one POST route per endpoint on the caller's fiber.
+ * @param ctx - plugin context bound to `connection` (see `ctx.inject`).
+ * @param store - the open task store.
+ */
+export function registerTaskRunnerRpc(ctx: Context, store: TaskStore): void {
+  for (const endpoint of TASK_RUNNER_ENDPOINTS) {
+    ctx.effect(() => {
+      const dispose = ctx.connection.fetch.register({
+        path: taskRunnerRoutePath(endpoint),
+        methods: ['POST'],
+        requestBody: 'buffered',
+        fetch: (request) => serve(ctx, store, endpoint, request),
+      })
+      return () => {
+        void dispose()
+      }
+    }, `task-runner: ${endpoint} Fetch route`)
+  }
+}
+
+/**
+ * Decode one client-request envelope, dispatch it, and answer in the standard
+ * server-response shape. Malformed traffic (not our client) gets a plain HTTP
+ * status; a well-formed envelope always gets an envelope back.
+ * @param ctx - plugin context.
+ * @param store - the open task store.
+ * @param endpoint - the endpoint this route owns.
+ * @param request - the carrier-authenticated Fetch request.
+ * @returns the JSON response envelope.
+ */
+async function serve(
+  ctx: Context,
+  store: TaskStore,
+  endpoint: string,
+  request: Request,
+): Promise<Response> {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return new Response('body is not JSON', { status: 400 })
+  }
+  const envelope = clientRequestSchema.safeParse(body)
+  if (!envelope.success) return new Response('invalid client-request envelope', { status: 400 })
+  const message = envelope.data
+  // The wire method is the namespaced endpoint the caller used
+  // (`task-runner/tasks/list`), which is exactly the route path below `/api`.
+  const expected = taskRunnerEndpointName(endpoint)
+  if (message.method !== expected) {
+    return respond(
+      message.rpcId,
+      fail(
+        'bad-request',
+        `method ${JSON.stringify(message.method)} does not match endpoint ${JSON.stringify(expected)}`,
+      ),
+    )
+  }
+  let result: RpcResult<unknown>
+  try {
+    result = await dispatch(ctx, store, endpoint, message.payload)
+  } catch (error) {
+    result = fail('internal', error instanceof Error ? error.message : String(error))
+  }
+  return respond(message.rpcId, result)
+}
+
+/** Serialize one result as the Connection server-response envelope. */
+function respond(rpcId: string, result: RpcResult<unknown>): Response {
+  return Response.json({ type: 'server-response', rpcId: RpcId(rpcId), result })
+}
+
+/** A success result. */
 function ok(value: unknown): RpcResult<unknown> {
   return { ok: true, value }
 }
 
-function fail(message: string): RpcResult<unknown> {
-  return { ok: false, error: { code: 'internal', message, details: {} } }
-}
-
-/**
- * Register the channel handlers on the caller's fiber.
- * @param ctx - plugin context (requires `connection`, `agents`).
- * @param store - the open task store.
- */
-export function registerTaskRunnerRpc(ctx: Context, store: TaskStore): void {
-  const dispose = ctx.connection.rpc.handle(TASK_RUNNER_CHANNEL, async (endpoint, payload) => {
-    try {
-      return await dispatch(ctx, store, endpoint, payload)
-    } catch (error) {
-      return fail(error instanceof Error ? error.message : String(error))
-    }
-  })
-  ctx.effect(
-    () => () => {
-      void dispose()
-    },
-    'task-runner: rpc channel',
-  )
+/** A failure result. */
+function fail(code: string, message: string): RpcResult<unknown> {
+  return { ok: false, error: { code, message, details: {} } }
 }
 
 async function dispatch(

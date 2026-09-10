@@ -9,6 +9,9 @@
  *  3. assert the picker shows a visible task (current-workspace or global),
  *     and neither the picker text nor the dropdown contains the foreign task. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl, rpc } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 const FOREIGN_NAME = `外部工作区-${Date.now().toString(36)}`
 
@@ -21,22 +24,6 @@ async function closeAllTabs() {
   } catch {
     /* browser may not be reachable yet */
   }
-}
-
-async function rpc(method, payload) {
-  const res = await fetch(`${BASE}/task-runner/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: `ws-${Date.now()}`,
-      method,
-      payload,
-    }),
-  })
-  const body = await res.json()
-  if (body.result?.ok !== true) throw new Error(`${method} failed: ${JSON.stringify(body)}`)
-  return body.result.value
 }
 
 async function main() {
@@ -87,7 +74,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   let booted = false
   for (let i = 0; i < 60; i++) {
@@ -102,12 +89,13 @@ async function main() {
   }
   if (!booted) process.exit(1)
 
-  const hasSessionLog = () =>
-    evaluate(
-      `[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Session log')`,
-    )
+  // "Inside a session" is detected by the session header's utilities cluster.
+  // The English `Session log` button this used to look for no longer exists in
+  // the localized header.
+  const hasSessionHeader = () =>
+    evaluate(`document.querySelector('[class*="headerUtilities"]') !== null`)
 
-  let inSession = await hasSessionLog()
+  let inSession = await hasSessionHeader()
   if (!inSession) {
     await evaluate(`(() => {
       const b = [...document.querySelectorAll('button')].find(
@@ -128,7 +116,7 @@ async function main() {
     })()`)
     for (let i = 0; i < 30; i++) {
       await sleep(1000)
-      if (await hasSessionLog()) {
+      if (await hasSessionHeader()) {
         inSession = true
         break
       }

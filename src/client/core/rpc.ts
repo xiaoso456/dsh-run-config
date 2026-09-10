@@ -1,13 +1,14 @@
 /**
- * Client-side caller for the `/task-runner` Connection RPC channel.
+ * Client-side caller for the task-runner Host endpoints. The Host serves one
+ * exact Fetch route per endpoint on the Connection shared API channel, so the
+ * caller goes through the same `/api` carrier (and its browser-session policy)
+ * as every other browser RPC.
  * @module @xiaoso/dsh-run-config/client/rpc
  */
 
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import { TASK_RUNNER_CHANNEL, taskRunnerEndpointName } from '../../shared/wire.ts'
 import type { TaskRunnerRpcMap } from './types.ts'
-
-/** The logical channel this plugin's Host half serves. */
-export const TASK_RUNNER_CHANNEL = '/task-runner'
 
 /** Minimal structural view of a channel result (the connection transport returns this envelope). */
 export interface ChannelResult {
@@ -30,7 +31,7 @@ export function createTaskRunnerRpc(connection: ConnectionHandle): TaskRunnerRpc
     async call(endpoint, args) {
       const result = (await connection.rpc.call(
         TASK_RUNNER_CHANNEL,
-        endpoint,
+        taskRunnerEndpointName(endpoint),
         args,
       )) as unknown as ChannelResult
       if (!result.ok) {

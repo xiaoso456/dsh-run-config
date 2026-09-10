@@ -12,6 +12,9 @@
  *  4. hover the run segment → the tooltip bubble appears with the run hint;
  *  5. close the menu; report console errors. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl, rpc } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 const TASK_NAME = `combo-verify-${Date.now().toString(36)}`
 
@@ -19,39 +22,18 @@ const TASK_NAME = `combo-verify-${Date.now().toString(36)}`
  *  control has a visible configuration regardless of the current
  *  workspace's task state. */
 async function createTaskViaRpc() {
-  const res = await fetch(`${BASE}/task-runner/tasks/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: 'combo-verify',
-      method: 'tasks/create',
-      payload: {
-        name: TASK_NAME,
-        type: 'command',
-        scope: 'global',
-        command: 'echo combo-ok',
-        notifyLlm: true,
-      },
-    }),
+  const value = await rpc('tasks/create', {
+    name: TASK_NAME,
+    type: 'command',
+    scope: 'global',
+    command: 'echo combo-ok',
+    notifyLlm: true,
   })
-  const body = await res.json()
-  const result = body.result
-  if (result?.ok !== true) throw new Error(`create failed: ${JSON.stringify(body)}`)
-  return result.value.task.id
+  return value.task.id
 }
 
 async function deleteTaskViaRpc(id) {
-  await fetch(`${BASE}/task-runner/tasks/delete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: 'combo-verify',
-      method: 'tasks/delete',
-      payload: { id },
-    }),
-  }).catch(() => {})
+  await rpc('tasks/delete', { id }).catch(() => {})
 }
 
 async function closeAllTabs() {
@@ -114,7 +96,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   const results = {}
   let booted = false
@@ -166,7 +148,12 @@ async function main() {
     const text = menu.innerText
     return {
       found: true,
-      hasFooter: text.includes('编辑配置') || text.includes('Edit configurations'),
+      // Current footer label is "编辑任务配置" (the shorter "编辑配置" from the
+      // original wording is NOT a substring of it).
+      hasFooter:
+        text.includes('编辑任务配置') ||
+        text.includes('编辑配置') ||
+        text.includes('Edit configurations'),
       rows: menu.querySelectorAll('button[role="menuitem"]').length,
     }
   })()`)

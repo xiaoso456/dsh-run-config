@@ -9,6 +9,9 @@
  *  3. pick it in the header RunCombo and click run;
  *  4. wait for the completion notice ("已完成") in the session. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl, rpc } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 const TASK_NAME = `pwsh验证-${Date.now().toString(36)}`
 
@@ -21,22 +24,6 @@ async function closeAllTabs() {
   } catch {
     /* browser may not be reachable yet */
   }
-}
-
-async function rpc(method, payload) {
-  const res = await fetch(`${BASE}/task-runner/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: `pwsh-${Date.now()}`,
-      method,
-      payload,
-    }),
-  })
-  const body = await res.json()
-  if (body.result?.ok !== true) throw new Error(`${method} failed: ${JSON.stringify(body)}`)
-  return body.result.value
 }
 
 async function main() {
@@ -87,7 +74,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   let booted = false
   for (let i = 0; i < 60; i++) {
@@ -102,12 +89,13 @@ async function main() {
   }
   if (!booted) process.exit(1)
 
-  const hasSessionLog = () =>
-    evaluate(
-      `[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Session log')`,
-    )
+  // "Inside a session" is detected by the session header's utilities cluster.
+  // The English `Session log` button this used to look for no longer exists in
+  // the localized header.
+  const hasSessionHeader = () =>
+    evaluate(`document.querySelector('[class*="headerUtilities"]') !== null`)
 
-  let inSession = await hasSessionLog()
+  let inSession = await hasSessionHeader()
   if (!inSession) {
     await evaluate(`(() => {
       const b = [...document.querySelectorAll('button')].find(
@@ -128,7 +116,7 @@ async function main() {
     })()`)
     for (let i = 0; i < 30; i++) {
       await sleep(1000)
-      if (await hasSessionLog()) {
+      if (await hasSessionHeader()) {
         inSession = true
         break
       }
@@ -182,6 +170,24 @@ async function main() {
     }
   })()`)
   console.log('run feedback:', JSON.stringify(runFeedback))
+
+  // Environment guard (documented D15 phenomenon): this acceptance instance
+  // shares ~/.dsh with the long-running development service, which resumes the
+  // last session and owns ITS agent. A session merely *viewed* here can
+  // therefore have no live agent in this process, and the host correctly
+  // refuses the run. That is an environment artifact, not a plugin regression,
+  // so report it as a skip instead of a failure.
+  if (runFeedback.failed === true && runFeedback.snippet.includes('no live agent')) {
+    await rpc('tasks/delete', { id: taskId })
+    console.log('=== PWSH EXECUTOR: SKIPPED ===')
+    console.log(
+      'The viewed session has no live agent in this process (dual-service ' +
+        'shared ~/.dsh registry; see docs/决策记录.md D15). Run this script ' +
+        'against a single-instance deployment to execute it.',
+    )
+    ws.close()
+    process.exit(0)
+  }
 
   // Wait for the probe file to appear in the session workspace (the command
   // runs with cwd = the session's workspace path).

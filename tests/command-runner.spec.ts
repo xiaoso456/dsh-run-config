@@ -6,14 +6,32 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
+import type { Agent, Inbox } from '@deepseek-ai/dsh-agent'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { JobId } from '@deepseek-ai/dsh-jobs'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { describe, expect, it, type Mock, vi } from 'vitest'
 import { runCommandTask } from '../src/host/command.ts'
 import type { TaskRecord } from '../src/host/tasks.ts'
+
+/**
+ * Minimal Inbox double. Since dsh 0.1.5 `Inbox` is an interface — its concrete
+ * storage belongs to the agent driver — so a test agent supplies its own. The
+ * command runner never touches the inbox; it only notifies through the agent.
+ */
+function stubInbox(): Inbox {
+  return {
+    nextTurn: [],
+    nextStep: [],
+    clear: () => {},
+    append: () => {},
+    prepend: () => {},
+    replace: () => false,
+    remove: () => false,
+    splice: () => [],
+  }
+}
 
 /** A minimal live agent with spied notification sinks. */
 function stubAgent(ctx: Context, rawId: string): Agent {
@@ -26,11 +44,7 @@ function stubAgent(ctx: Context, rawId: string): Agent {
     id,
     options: {},
     session,
-    inbox: new Inbox(session, {
-      inserted: () => {},
-      discarded: () => {},
-      claimed: () => {},
-    }),
+    inbox: stubInbox(),
     status: 'idle' as const,
     ctx: scopeFiber.ctx,
     send: () => {},

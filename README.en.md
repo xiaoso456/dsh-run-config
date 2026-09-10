@@ -80,7 +80,7 @@ profile's `pnpm-workspace.yaml`.
 
 - **Node.js** ≥ 22 (per the `engines` field in `package.json`)
 - **Git Bash** (recommended): recommended shell environment on Windows
-- Built for DeepSeek Harness `dsh` v0.1.2-rc.1
+- Built for DeepSeek Harness `dsh` v0.1.5-rc.1 and newer (use plugin 0.1.4-rc.1 for dsh v0.1.2-rc.1)
 
 ## Build
 

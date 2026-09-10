@@ -7,30 +7,21 @@
  *   3. click the hero trigger (opens the run-config dialog, which bumps);
  *   4. assert the dialog lists the freshly created task. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl, rpc } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 const TASK_NAME = `刷新验证-${Date.now().toString(36)}`
 
 async function createTaskViaRpc() {
-  const res = await fetch(`${BASE}/task-runner/tasks/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: 'refresh-verify',
-      method: 'tasks/create',
-      payload: {
-        name: TASK_NAME,
-        type: 'command',
-        scope: 'global',
-        command: 'echo refresh-ok',
-        notifyLlm: true,
-      },
-    }),
+  const value = await rpc('tasks/create', {
+    name: TASK_NAME,
+    type: 'command',
+    scope: 'global',
+    command: 'echo refresh-ok',
+    notifyLlm: true,
   })
-  const body = await res.json()
-  const result = body.result
-  if (result?.ok !== true) throw new Error(`create failed: ${JSON.stringify(body)}`)
-  return result.value.task.id
+  return value.task.id
 }
 
 async function closeAllTabs() {
@@ -92,7 +83,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   const results = {}
   let booted = false
@@ -176,16 +167,7 @@ async function main() {
   for (const e of consoleErrors.slice(0, 10)) console.log(' -', e.slice(0, 300))
 
   // Cleanup: delete the probe task through the RPC.
-  await fetch(`${BASE}/task-runner/tasks/delete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: 'refresh-2',
-      method: 'tasks/delete',
-      payload: { id: taskId },
-    }),
-  })
+  await rpc('tasks/delete', { id: taskId }).catch(() => {})
 
   ws.close()
   process.exit(results.dialogShowsNewTask === true ? 0 : 1)

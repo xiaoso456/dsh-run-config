@@ -5,14 +5,20 @@
  *     workspaces' tasks;
  *  2. running an LLM task with an EMPTY prompt shows the failure toast
  *     instead of silently doing nothing.
- * Sequence: boot the hero page → create probe tasks via RPC (empty-prompt
+ * Sequence: boot the hero page → resolve the hero's CURRENT workspace from the
+ * workspace trigger + the task data → create probe tasks via RPC (empty-prompt
  * global LLM, current-workspace LLM, foreign-workspace LLM, global command)
  * → open the picker and assert grouping/visibility → select the empty task
- * → click run → assert the "empty prompt" toast appears. */
+ * → click run → assert the "empty prompt" toast appears.
+ *
+ * The current workspace is discovered rather than hardcoded: the hero shows
+ * whichever workspace the app selected, which varies per machine/session. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl, rpc } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 const TASK_NAME = `空prompt验证-${Date.now().toString(36)}`
-const CURRENT_WS_PATH = 'D:\\code\\pi-gateway-project\\dsh-plugin\\dsh-task-runner'
 const FOREIGN_WS_PATH = 'D:\\__no_such_workspace__'
 
 async function closeAllTabs() {
@@ -24,22 +30,6 @@ async function closeAllTabs() {
   } catch {
     /* browser may not be reachable yet */
   }
-}
-
-async function rpc(method, payload) {
-  const res = await fetch(`${BASE}/task-runner/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'client-request',
-      rpcId: `hero-llm-${Date.now()}`,
-      method,
-      payload,
-    }),
-  })
-  const body = await res.json()
-  if (body.result?.ok !== true) throw new Error(`${method} failed: ${JSON.stringify(body)}`)
-  return body.result.value
 }
 
 async function main() {
@@ -93,7 +83,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   let booted = false
   for (let i = 0; i < 60; i++) {
@@ -123,6 +113,33 @@ async function main() {
     await sleep(1500)
   }
 
+  // Resolve the hero's CURRENT workspace. The trigger only renders the
+  // workspace NAME, so match it against the workspace paths already present in
+  // the task data (any workspace-scoped task pins its path).
+  const workspaceName = String(
+    (await evaluate(`(() => {
+      const t = document.querySelector('[aria-label="选择工作区"]')
+      return t ? t.innerText.trim() : ''
+    })()`)) ?? '',
+  )
+  const before = await rpc('tasks/list', {})
+  const currentWsPath = before.tasks
+    .map((task) => task.workspacePath)
+    .find(
+      (path) =>
+        typeof path === 'string' &&
+        workspaceName.length > 0 &&
+        path.split(/[\\/]/).pop().toLowerCase() === workspaceName.toLowerCase(),
+    )
+  if (currentWsPath === undefined) {
+    console.error(
+      `hero-llm check failed: cannot resolve the workspace path of "${workspaceName}" ` +
+        '(no existing workspace-scoped task names it); create one task in that workspace first',
+    )
+    process.exit(1)
+  }
+  console.log('current workspace:', workspaceName, '->', currentWsPath)
+
   // Create probe tasks through the host RPC.
   const created = await rpc('tasks/create', {
     name: TASK_NAME,
@@ -135,7 +152,7 @@ async function main() {
     name: `当前工作区-${TASK_NAME}`,
     type: 'llm',
     scope: 'workspace',
-    workspacePath: CURRENT_WS_PATH,
+    workspacePath: currentWsPath,
     llmPrompt: 'hello',
   })
   const foreignTask = await rpc('tasks/create', {
@@ -195,7 +212,7 @@ async function main() {
   const expected = all.tasks.filter(
     (t) =>
       t.type === 'llm' &&
-      (t.scope === 'global' || (t.scope === 'workspace' && t.workspacePath === CURRENT_WS_PATH)),
+      (t.scope === 'global' || (t.scope === 'workspace' && t.workspacePath === currentWsPath)),
   ).length
   results.expectedLlmVisible = expected
   results.rowsMatchLlmOnly = results.picker?.taskRows === expected

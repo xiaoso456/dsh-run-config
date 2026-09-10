@@ -1,11 +1,15 @@
 /**
- * Header-order verify: the RunCombo must sit LEFT of the official "Session
- * log" button in the session header (registered into the header ACTIONS
- * cluster, before the utilities cluster). Sequence:
+ * Header-order verify: the RunCombo must sit inside the official session-header
+ * utilities cluster, on the same row as that cluster's other controls (it is
+ * registered there with an order below the official entries). Sequence:
  *  1. load the page; if it restores a session, verify directly;
- *  2. otherwise enter a session through the hero workspace menu;
- *  3. compare x coordinates of the run segment vs the Session log button. */
+ *  2. otherwise enter a session through the sidebar session list;
+ *  3. assert the run control's box lies within the utilities cluster's box and
+ *     that its vertical centre matches a neighbouring header control. */
 const CDP_HTTP = 'http://127.0.0.1:9222'
+
+import { authenticatedUrl } from './lib/web-session.mjs'
+
 const BASE = 'http://127.0.0.1:3190'
 
 async function closeAllTabs() {
@@ -66,7 +70,7 @@ async function main() {
 
   await send('Page.enable')
   await send('Runtime.enable')
-  await send('Page.navigate', { url: `${BASE}/` })
+  await send('Page.navigate', { url: authenticatedUrl(BASE) })
 
   let booted = false
   for (let i = 0; i < 60; i++) {
@@ -81,12 +85,13 @@ async function main() {
   }
   if (!booted) process.exit(1)
 
-  const hasSessionLog = () =>
-    evaluate(
-      `[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Session log')`,
-    )
+  // "Inside a session" is detected by the session header's utilities cluster.
+  // The English `Session log` button this used to look for no longer exists in
+  // the localized header.
+  const hasSessionHeader = () =>
+    evaluate(`document.querySelector('[class*="headerUtilities"]') !== null`)
 
-  let inSession = await hasSessionLog()
+  let inSession = await hasSessionHeader()
   if (!inSession) {
     // Hero page: open a session through the sidebar session list (avoids
     // the connectWorkspace stall in this environment).
@@ -109,7 +114,7 @@ async function main() {
     })()`)
     for (let i = 0; i < 30; i++) {
       await sleep(1000)
-      if (await hasSessionLog()) {
+      if (await hasSessionHeader()) {
         inSession = true
         break
       }
@@ -118,24 +123,32 @@ async function main() {
 
   const results = { booted, inSession }
   if (inSession) {
+    // Structural check (the header is localized, so no button label is a
+    // stable reference): the run control must live inside the official
+    // header-utilities cluster and share its row with that cluster's other
+    // controls.
     results.positions = await evaluate(`(() => {
       const run = document.querySelector('[aria-label="运行"]')
-      const log = [...document.querySelectorAll('button')].find(
-        b => b.textContent.trim() === 'Session log',
-      )
-      if (!run || !log) return null
+      const utilities = run?.closest('[class*="headerUtilities"]')
+      if (!run || !utilities) return null
       const rr = run.getBoundingClientRect()
-      const lr = log.getBoundingClientRect()
+      const ur = utilities.getBoundingClientRect()
+      const others = [...utilities.querySelectorAll('button')].filter(
+        b => !b.contains(run) && b.getBoundingClientRect().width > 0,
+      )
+      const firstOther = others[0] ? others[0].getBoundingClientRect() : null
       const pick = run.parentElement.querySelector('[aria-expanded]')
       const pr = pick ? pick.getBoundingClientRect() : null
       return {
         runX: Math.round(rr.left),
-        logX: Math.round(lr.left),
+        utilitiesX: Math.round(ur.left),
         pickX: pr ? Math.round(pr.left) : null,
-        runLeftOfLog: rr.left < lr.left,
-        sameRow: Math.abs(rr.top - lr.top) < 20,
-        inUtilitiesCluster: !!run.closest('[class*="headerUtilities"]'),
-        gapToLog: Math.round(lr.left - (rr.left + rr.width)),
+        inUtilitiesCluster: true,
+        withinUtilities: rr.left >= ur.left - 1 && rr.right <= ur.right + 1,
+        sameRow:
+          firstOther === null ||
+          Math.abs(rr.top + rr.height / 2 - (firstOther.top + firstOther.height / 2)) < 20,
+        neighborCount: others.length,
       }
     })()`)
   }
@@ -148,7 +161,7 @@ async function main() {
   ws.close()
   const pass =
     results.inSession === true &&
-    results.positions?.runLeftOfLog === true &&
+    results.positions?.withinUtilities === true &&
     results.positions?.sameRow === true &&
     consoleErrors.length === 0
   process.exit(pass ? 0 : 1)

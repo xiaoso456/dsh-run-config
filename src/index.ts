@@ -1,10 +1,10 @@
 /**
  * dsh-run-config, host half.
  *
- * Wires the persistent task store (storage domain), the `/task-runner`
- * Connection RPC channel (task CRUD + command runs), the `task-runner`
- * settings namespace (`toolEnabled`), and the `task_run_config` LLM tool
- * whose registration follows the switch dynamically.
+ * Wires the persistent task store (storage domain), the browser RPC routes on
+ * the shared Connection `/api` channel (task CRUD + command runs, see
+ * host/rpc.ts), the `task-runner` settings namespace (`toolEnabled`), and the
+ * `task_run_config` LLM tool whose registration follows the switch dynamically.
  *
  * Run semantics: `llm` tasks run purely in the browser (standard send flow);
  * `command` tasks run here as background jobs (see host/command.ts).
@@ -36,6 +36,10 @@ export const name = 'task-runner'
  * that consumes `sandboxPolicy`/`approval` opportunistically with `ctx.get`,
  * and the ToolRuntime resolves `ask` through the standard approval seam.
  * jobs/shell stay optional.
+ *
+ * `connection` remains a hard dependency because the browser half has no other
+ * transport; the RPC registration itself re-binds it through `ctx.inject`
+ * (see the end of `apply`).
  */
 export const inject = ['storageDomain', 'tools', 'connection', 'agents', 'skills']
 
@@ -91,6 +95,12 @@ export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise
     ctx.effect(() => jobs.attachController('task-runner'), 'task-runner: job controller')
   }
 
-  // Browser-facing RPC channel.
-  registerTaskRunnerRpc(ctx, store)
+  // Browser-facing RPC: one exact Fetch route per endpoint on the shared
+  // `/api` Connection channel (see host/rpc.ts). Registration needs the
+  // Connection service bound to the calling context, so it runs in an
+  // `ctx.inject` child; the carrier that owns `/api` authenticates the
+  // request before the handler sees it.
+  ctx.inject(['connection'], (connectionCtx) => {
+    registerTaskRunnerRpc(connectionCtx, store)
+  })
 }
