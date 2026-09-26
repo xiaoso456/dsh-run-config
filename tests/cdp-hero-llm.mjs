@@ -132,11 +132,19 @@ async function main() {
         path.split(/[\\/]/).pop().toLowerCase() === workspaceName.toLowerCase(),
     )
   if (currentWsPath === undefined) {
-    console.error(
-      `hero-llm check failed: cannot resolve the workspace path of "${workspaceName}" ` +
-        '(no existing workspace-scoped task names it); create one task in that workspace first',
+    // The hero resolves its current workspace from the workspace picker's
+    // selection, so a profile whose hero has no workspace selected yet (the
+    // trigger still shows the placeholder) cannot have its path discovered from
+    // task data. Skip loudly, like cdp-pwsh's environment guard: this is app
+    // state, not a plugin regression.
+    console.log('=== HERO LLM: SKIPPED ===')
+    console.log(
+      `the hero workspace trigger reads "${workspaceName}" (no workspace selected in this profile), ` +
+        'so its path cannot be resolved from existing task data.\n' +
+        'Select a workspace in the hero once, or create a workspace-scoped task for it, then run this script again.',
     )
-    process.exit(1)
+    ws.close()
+    process.exit(0)
   }
   console.log('current workspace:', workspaceName, '->', currentWsPath)
 

@@ -13,21 +13,21 @@
 
 import {
   Button,
-  IconChecklistOutline14,
-  IconCheckOutline16,
-  IconChevronDownOutline14,
-  IconCodeOutline16,
-  IconCopyOutline16,
-  IconEllipsisOutline16,
-  IconFolderOpenOutline16,
-  IconPlusOutline16,
-  IconSearchOutline16,
-  IconThinkOutline16,
-  IconTrashOutline16,
-  IconWarningOutline16,
+  IconChecklistOutlineMedium,
+  IconCheckOutlineRegular,
+  IconChevronDownOutlineMedium,
+  IconCodeOutlineRegular,
+  IconCopyOutlineRegular,
+  IconEllipsisOutlineRegular,
+  IconFolderOpenOutlineRegular,
+  IconPlusOutlineRegular,
+  IconSearchOutlineRegular,
+  IconThinkOutlineRegular,
+  IconTrashOutlineRegular,
+  IconWarningOutlineRegular,
   Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DragEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -46,7 +46,7 @@ export interface TaskRunnerDialogSettings {
 /** Injected business face supplied by the client entry. */
 export interface RunConfigDialogInjected {
   rpc: TaskRunnerRpc
-  settings: SettingsScope<TaskRunnerDialogSettings>
+  settings: ConfigForm<TaskRunnerDialogSettings>
 }
 
 /** Full props for the dialog. */
@@ -107,8 +107,13 @@ export function RunConfigDialog({
   t,
 }: RunConfigDialogProps) {
   const snap = useSyncExternalStore(taskRunnerStore.subscribe, taskRunnerStore.getSnapshot)
+  // The current session is the one retained by the main view: dsh 0.1.7
+  // removed `SessionListState.current`, and this is the official replacement
+  // selector (ui-layout's DocumentTitle and ui-settings-general use it too).
   const currentCwd = useSessions((state) => {
-    const current = state.current
+    const current = Object.values(state.byId).find(
+      (session) => (session.retainedBy.mainView ?? 0) > 0,
+    )?.id
     return current === undefined ? undefined : state.byId[current]?.cwd
   })
   const workspaces = useWorkspaces((state) => state.items)
@@ -122,7 +127,7 @@ export function RunConfigDialog({
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const workspaceTriggerRef = useRef<HTMLButtonElement>(null)
 
-  // Keep the settings switch live (the scope snapshot is identity-stable;
+  // Keep the settings switch live (the form snapshot is identity-stable;
   // arrow wrappers keep the class methods' `this` binding).
   const settingsSnap = useSyncExternalStore(
     (listener) => settings.subscribe(listener),
@@ -319,9 +324,15 @@ export function RunConfigDialog({
   }
 
   const toggleToolEnabled = (): void => {
-    void settings.set('toolEnabled', !toolEnabled).catch((error) => {
-      setSaveError(String(error instanceof Error ? error.message : error))
-    })
+    void settings
+      .set('toolEnabled', !toolEnabled)
+      .then((accepted) => {
+        // 0.1.7: a Host refusal resolves `false` instead of rejecting.
+        if (!accepted) setSaveError(t('saveFailed', { message: 'refused by the Host' }))
+      })
+      .catch((error) => {
+        setSaveError(String(error instanceof Error ? error.message : error))
+      })
   }
 
   const dirty = draft !== null && selected !== undefined && !sameAsTask(draft, selected)
@@ -332,7 +343,7 @@ export function RunConfigDialog({
       workspaces.map((workspace) => ({
         id: workspace.path,
         label: workspace.path,
-        icon: <IconFolderOpenOutline16 size={14} />,
+        icon: <IconFolderOpenOutlineRegular size={14} />,
       })),
     [workspaces],
   )
@@ -349,12 +360,12 @@ export function RunConfigDialog({
         <div className={css.footer}>
           {saveError !== undefined ? (
             <span className={css.footerError} role="alert">
-              <IconWarningOutline16 size={14} />
+              <IconWarningOutlineRegular size={14} />
               <span className={css.footerErrorText}>{saveError}</span>
             </span>
           ) : saved ? (
             <span className={css.footerSaved} role="status">
-              <IconCheckOutline16 size={14} />
+              <IconCheckOutlineRegular size={14} />
               <span>{t('savedText')}</span>
             </span>
           ) : null}
@@ -378,7 +389,7 @@ export function RunConfigDialog({
               aria-label={t('btnAdd')}
               onClick={createTask}
             >
-              <IconPlusOutline16 size={14} />
+              <IconPlusOutlineRegular size={14} />
             </button>
             <button
               type="button"
@@ -388,7 +399,7 @@ export function RunConfigDialog({
               disabled={selected === undefined}
               onClick={duplicateTask}
             >
-              <IconCopyOutline16 size={14} />
+              <IconCopyOutlineRegular size={14} />
             </button>
             <button
               type="button"
@@ -400,10 +411,10 @@ export function RunConfigDialog({
                 setConfirmDelete((current) => !current)
               }}
             >
-              <IconTrashOutline16 size={14} />
+              <IconTrashOutlineRegular size={14} />
             </button>
             <div className={css.searchWrap}>
-              <IconSearchOutline16 className={css.searchIcon} size={13} />
+              <IconSearchOutlineRegular className={css.searchIcon} size={13} />
               <input
                 className={css.search}
                 placeholder={t('searchPlaceholder')}
@@ -417,7 +428,7 @@ export function RunConfigDialog({
           {confirmDelete && selected !== undefined ? (
             <div className={css.confirmBar} role="alertdialog" aria-label={t('deleteConfirmTitle')}>
               <span className={css.confirmIcon}>
-                <IconWarningOutline16 size={14} />
+                <IconWarningOutlineRegular size={14} />
               </span>
               <span className={css.confirmText}>
                 {t('deleteConfirmBody', { name: selected.name })}
@@ -447,7 +458,7 @@ export function RunConfigDialog({
             {filtered.length === 0 ? (
               <div className={css.empty}>
                 <span className={css.emptyIcon}>
-                  <IconChecklistOutline14 size={18} />
+                  <IconChecklistOutlineMedium size={18} />
                 </span>
                 <span>{t('emptyList')}</span>
                 <span>{t('emptyListHint')}</span>
@@ -491,7 +502,7 @@ export function RunConfigDialog({
           {draft === null || selected === undefined ? (
             <div className={css.empty}>
               <span className={css.emptyIcon}>
-                <IconChecklistOutline14 size={18} />
+                <IconChecklistOutlineMedium size={18} />
               </span>
               <span>{t('emptyList')}</span>
             </div>
@@ -531,7 +542,7 @@ export function RunConfigDialog({
                       id: 'llm',
                       label: (
                         <>
-                          <IconThinkOutline16 size={14} />
+                          <IconThinkOutlineRegular size={14} />
                           {t('typeLlm')}
                         </>
                       ),
@@ -540,7 +551,7 @@ export function RunConfigDialog({
                       id: 'command',
                       label: (
                         <>
-                          <IconCodeOutline16 size={14} />
+                          <IconCodeOutlineRegular size={14} />
                           {t('typeCommand')}
                         </>
                       ),
@@ -582,7 +593,7 @@ export function RunConfigDialog({
                           ? draft.workspacePath
                           : t('workspacePlaceholder')}
                       </span>
-                      <IconChevronDownOutline14
+                      <IconChevronDownOutlineMedium
                         className={workspaceOpen ? css.selectArrowOpen : css.selectArrow}
                       />
                     </button>
@@ -665,7 +676,7 @@ export function RunConfigDialog({
                       }}
                     />
                     <span className={css.checkbox} aria-hidden="true">
-                      {draft.notifyLlm ? <IconCheckOutline16 size={12} /> : null}
+                      {draft.notifyLlm ? <IconCheckOutlineRegular size={12} /> : null}
                     </span>
                     <span className={css.checkboxText}>
                       <span className={css.checkboxTitle}>{t('fieldNotifyLlm')}</span>
@@ -721,17 +732,21 @@ export function RunConfigDialog({
         }}
       >
         <span className={css.dragHandle} aria-hidden="true">
-          <IconEllipsisOutline16 className={css.dragHandleIcon} size={12} />
+          <IconEllipsisOutlineRegular className={css.dragHandleIcon} size={12} />
         </span>
         <span className={css.typeChip}>
-          {task.type === 'llm' ? <IconThinkOutline16 size={13} /> : <IconCodeOutline16 size={13} />}
+          {task.type === 'llm' ? (
+            <IconThinkOutlineRegular size={13} />
+          ) : (
+            <IconCodeOutlineRegular size={13} />
+          )}
         </span>
         <span className={css.rowName} title={task.name}>
           {task.name}
         </span>
         {isSelected ? (
           <span className={css.rowCheck}>
-            <IconCheckOutline16 size={12} />
+            <IconCheckOutlineRegular size={12} />
           </span>
         ) : null}
       </button>

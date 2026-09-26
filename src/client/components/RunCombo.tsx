@@ -8,7 +8,7 @@
  * @module @xiaoso/dsh-run-config/client/RunCombo
  */
 
-import { IconChevronDownOutline14, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineMedium, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReactNode, Ref } from 'react'
 import css from './RunCombo.module.css'
 
@@ -72,7 +72,7 @@ export function RunCombo({
           <span className={css.name} title={name}>
             {name ?? placeholder}
           </span>
-          <IconChevronDownOutline14
+          <IconChevronDownOutlineMedium
             className={open ? `${css.chevron} ${css.chevronOpen}` : css.chevron}
           />
         </button>

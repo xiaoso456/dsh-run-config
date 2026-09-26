@@ -14,17 +14,17 @@
  */
 
 import {
-  IconCheckOutline16,
-  IconCodeOutline16,
-  IconFolderOpenOutline16,
-  IconPlusOutline16,
-  IconSettingsOutline16,
-  IconThinkOutline16,
-  IconWarningOutline16,
+  IconCheckOutlineRegular,
+  IconCodeOutlineRegular,
+  IconFolderOpenOutlineRegular,
+  IconPlusOutlineRegular,
+  IconSettingsOutlineRegular,
+  IconThinkOutlineRegular,
+  IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { NS } from '../core/locales.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'
 import { taskRunnerStore } from '../core/store.ts'
@@ -43,18 +43,13 @@ export interface HeroRunControlInjected {
   /** Create a workspace from a directory path. */
   createWorkspace: (path: string) => Promise<{ workspaceId: WorkspaceId }>
   /**
-   * The current session's input actions (undefined while no session is
-   * current), read from the renderer-host provide bundle.
+   * Deliver one LLM task into a just-connected session's composer through the
+   * session-addressed conversation input facade: `setDraft` always, `submit`
+   * only when the task sends immediately. A blank session renders no session
+   * header, so nothing else would consume the pending run there.
+   * @returns false while that session has no input facade (retried internally).
    */
-  getCurrentInputActions: () => HeroInputActions | undefined
-  /** Subscribe to current-session changes (the renderer-host provide bundle). */
-  subscribeCurrentSession: (listener: () => void) => () => void
-}
-
-/** The composer action face the hero needs (structural view of InputActions). */
-export interface HeroInputActions {
-  setDraft(text: string): void
-  submit(): void
+  deliverLlmTask: (sessionId: string, prompt: string, autoSend: boolean) => Promise<boolean>
 }
 
 /** Full props for the hero control. */
@@ -82,8 +77,7 @@ export function HeroRunControl({
   rpc,
   connectWorkspace,
   createWorkspace,
-  getCurrentInputActions,
-  subscribeCurrentSession,
+  deliverLlmTask,
   t,
 }: HeroRunControlProps) {
   const snap = useSyncExternalStore(taskRunnerStore.subscribe, taskRunnerStore.getSnapshot)
@@ -98,7 +92,7 @@ export function HeroRunControl({
   // Load tasks once and after every mutation revision (the hero page has no
   // session header, so this composite owns the initial load).
   useTaskLoader(rpc, snap.revision, (message) => {
-    showToast(message, <IconWarningOutline16 size={14} />)
+    showToast(message, <IconWarningOutlineRegular size={14} />)
   })
 
   // The hero page (new-session) only offers LLM tasks: command tasks need a
@@ -122,12 +116,15 @@ export function HeroRunControl({
     const task = selected
     if (task === undefined || busy) return
     if ((task.llmPrompt ?? '').trim().length === 0) {
-      showToast(t('runFailed', { message: 'empty prompt' }), <IconWarningOutline16 size={14} />)
+      showToast(
+        t('runFailed', { message: 'empty prompt' }),
+        <IconWarningOutlineRegular size={14} />,
+      )
       return
     }
     const target = currentWorkspace
     if (target === undefined) {
-      showToast(t('noVisibleTasks'), <IconWarningOutline16 size={14} />)
+      showToast(t('noVisibleTasks'), <IconWarningOutlineRegular size={14} />)
       return
     }
     setBusy(true)
@@ -136,18 +133,30 @@ export function HeroRunControl({
         if (task.type === 'command') {
           // Command tasks run directly on the connected session.
           return rpc.call('tasks/run', { id: task.id, sessionId, locale: 'zh' }).then((res) => {
-            showToast(res.jobId, <IconCheckOutline16 size={14} />)
+            showToast(res.jobId, <IconCheckOutlineRegular size={14} />)
           })
         }
-        // llm tasks: hand the run to whichever consumer is mounted (the hero
-        // composite itself on blank sessions, the session header otherwise).
-        taskRunnerStore.requestPendingRun(task.id)
-        return undefined
+        // llm tasks: execute the standard send flow on the connected session
+        // through the session-addressed input facade. A blank session renders
+        // no session header, so the pending-run slot would never be consumed
+        // there; only fall back to it when the facade is unreachable.
+        return deliverLlmTask(sessionId, task.llmPrompt ?? '', task.autoSend !== false).then(
+          (delivered) => {
+            if (delivered) {
+              if (task.autoSend === false) {
+                showToast(t('filledIn'), <IconCheckOutlineRegular size={14} />)
+              }
+              return undefined
+            }
+            taskRunnerStore.requestPendingRun(task.id)
+            return undefined
+          },
+        )
       })
       .catch((error) => {
         showToast(
           String(error instanceof Error ? error.message : error),
-          <IconWarningOutline16 size={14} />,
+          <IconWarningOutlineRegular size={14} />,
         )
       })
       .finally(() => {
@@ -155,36 +164,10 @@ export function HeroRunControl({
       })
   }
 
-  // Consume a pending llm run once a session is current (blank sessions have
-  // no header, so this composite executes the standard send flow itself).
-  useEffect(() => {
-    if (snap.pendingRunId === undefined) return
-    const task = visible.find((candidate) => candidate.id === snap.pendingRunId)
-    if (task === undefined || task.type !== 'llm') return
-    const actions = getCurrentInputActions()
-    if (actions !== undefined) {
-      taskRunnerStore.consumePendingRun()
-      actions.setDraft(task.llmPrompt ?? '')
-      if (task.autoSend !== false) actions.submit()
-      else showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
-      return
-    }
-    const off = subscribeCurrentSession(() => {
-      const current = getCurrentInputActions()
-      if (current === undefined) return
-      off()
-      taskRunnerStore.consumePendingRun()
-      current.setDraft(task.llmPrompt ?? '')
-      if (task.autoSend !== false) current.submit()
-      else showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
-    })
-    return off
-  }, [snap.pendingRunId, visible, getCurrentInputActions, subscribeCurrentSession])
-
   const items: MenuEntry[] = workspaces.map((workspace) => ({
     id: workspace.workspaceId,
     label: workspace.title,
-    icon: <IconFolderOpenOutline16 size={14} />,
+    icon: <IconFolderOpenOutlineRegular size={14} />,
   }))
 
   const footer: MenuEntry[] = adding
@@ -193,7 +176,7 @@ export function HeroRunControl({
         {
           id: ADD_WORKSPACE,
           label: t('heroAddWorkspace'),
-          icon: <IconPlusOutline16 size={14} />,
+          icon: <IconPlusOutlineRegular size={14} />,
         },
       ]
 
@@ -214,7 +197,7 @@ export function HeroRunControl({
     const entry = (task: TaskView): MenuEntry => ({
       id: task.id,
       label: task.name,
-      icon: <IconThinkOutline16 size={14} />,
+      icon: <IconThinkOutlineRegular size={14} />,
     })
     const currentTasks = visible.filter((task) => task.scope !== 'global')
     const globalTasks = visible.filter((task) => task.scope === 'global')
@@ -240,7 +223,7 @@ export function HeroRunControl({
     {
       id: EDIT_CONFIG,
       label: t('editConfig'),
-      icon: <IconSettingsOutline16 size={14} />,
+      icon: <IconSettingsOutlineRegular size={14} />,
     },
   ]
 
@@ -269,7 +252,7 @@ export function HeroRunControl({
       .catch((error) => {
         showToast(
           String(error instanceof Error ? error.message : error),
-          <IconWarningOutline16 size={14} />,
+          <IconWarningOutlineRegular size={14} />,
         )
       })
       .finally(() => {
@@ -310,7 +293,7 @@ export function HeroRunControl({
             }}
           />
           <button type="button" className={css.addButton} disabled={busy} onClick={create}>
-            <IconPlusOutline16 size={13} />
+            <IconPlusOutlineRegular size={13} />
             {t('heroCreate')}
           </button>
         </div>
@@ -319,9 +302,9 @@ export function HeroRunControl({
         <RunCombo
           icon={
             selected === undefined ? undefined : selected.type === 'llm' ? (
-              <IconThinkOutline16 size={14} />
+              <IconThinkOutlineRegular size={14} />
             ) : (
-              <IconCodeOutline16 size={14} />
+              <IconCodeOutlineRegular size={14} />
             )
           }
           name={selected?.name}

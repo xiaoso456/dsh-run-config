@@ -1,63 +1,63 @@
 /**
- * Settings surface for dsh-run-config: the `task-runner` namespace holds the
- * `toolEnabled` switch that controls whether the `task_run_config` LLM tool
- * is registered (default on). Uses the settings provider's namespace
- * registration (an effect on the calling fiber), so a committed change applies
- * without a reload; when no settings provider is mounted the plugin keeps
- * working with the composition default.
+ * Configuration surface for dsh-run-config. Since dsh 0.1.7 a plugin declares
+ * its tunable values on its own Cordis `Config` with `.volatile()` fields: the
+ * settings form projects exactly those fields (writes land in the active
+ * profile's Cordis patch), and the running plugin reads the live value off the
+ * stable reference instead of watching a settings scope — a config write
+ * updates the reference in place without re-applying the plugin.
+ *
+ * `toolEnabled` is the one switch: it decides whether the `task_run_config`
+ * LLM tool (and its usage skill) is exposed to the model. Default on.
  * @module @xiaoso/dsh-run-config/settings
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { SettingsApplies, SettingsProvider, SettingsScope } from '@deepseek-ai/dsh-settings'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 
 /** Settings namespace of this plugin (also the storage domain name and locale NS). */
 export const TASK_RUNNER_SETTINGS_NS = 'task-runner'
 
-/** Flat plugin settings: whether the task-management tool is exposed to the LLM. */
+/**
+ * The plugin's live configuration (the resolved `Config` schema below).
+ * `toolEnabled` arrives as a stable reference, never a plain value.
+ */
 export interface TaskRunnerSettings {
-  toolEnabled: boolean
-}
-
-/** Runtime schema: `toolEnabled` defaults to true (plan: the switch defaults on). */
-export const TaskRunnerSettingsSchema: z<TaskRunnerSettings> = z.object({
-  toolEnabled: z.boolean().default(true),
-})
-
-/** Defaults used while no settings provider is mounted. */
-export const DEFAULT_TASK_RUNNER_SETTINGS: TaskRunnerSettings = {
-  toolEnabled: true,
+  /** Whether the task-management tool is exposed to the LLM. */
+  toolEnabled: Volatile<boolean>
 }
 
 /**
- * Install the namespace registration: `onToolEnabled` fires with the
- * authoritative resolved value at registration and on every committed change.
+ * Runtime schema. `toolEnabled` is `volatile()` — the only kind of field the
+ * settings form may edit — and defaults to true (the switch ships on).
+ */
+export const Config = z.object({
+  toolEnabled: z.boolean().default(true).volatile(),
+})
+
+/** Defaults used by the host body when no config was supplied at all. */
+export const DEFAULT_TASK_RUNNER_SETTINGS = {
+  toolEnabled: true,
+} satisfies { toolEnabled: boolean }
+
+/**
+ * Drive the tool switch from the live config reference.
+ *
+ * The value is read once now and re-read on every committed settings write for
+ * this entry: 0.1.7 emits `settings/document-updated` from the settings
+ * service, and the volatile reference already carries the new value by then.
  * @param ctx - plugin context owning the wiring.
+ * @param config - the resolved plugin config (volatile references).
  * @param onToolEnabled - re-sync the tool registration for the new value.
  */
-export function installTaskRunnerSettings(
+export function installTaskRunnerSwitch(
   ctx: Context,
+  config: TaskRunnerSettings,
   onToolEnabled: (enabled: boolean) => void,
 ): void {
-  const settings = ctx.get('settings') as SettingsProvider | undefined
-  if (settings === undefined) {
-    // No settings provider mounted (or it attaches asynchronously): sync the
-    // default now; the provider's registration is not available, so the switch
-    // stays at the composition default for this process.
-    onToolEnabled(DEFAULT_TASK_RUNNER_SETTINGS.toolEnabled)
-    return
-  }
-  const scope = settings.register(TASK_RUNNER_SETTINGS_NS, TaskRunnerSettingsSchema, {
-    base: DEFAULT_TASK_RUNNER_SETTINGS,
-    applies: 'live' as SettingsApplies,
+  onToolEnabled(config.toolEnabled.get())
+  ctx.on('settings/document-updated', (ns) => {
+    if ((ns as string) !== TASK_RUNNER_SETTINGS_NS) return
+    onToolEnabled(config.toolEnabled.get())
   })
-  onToolEnabled(scope.get().toolEnabled)
-  const dispose = scope.watch((next) => {
-    onToolEnabled(next.toolEnabled)
-  })
-  ctx.effect(() => dispose, 'task-runner: settings watch')
 }
-
-/** Re-export the owner scope type for the client-facing surface. */
-export type TaskRunnerSettingsScope = SettingsScope<TaskRunnerSettings>

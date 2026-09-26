@@ -141,10 +141,16 @@ async function dispatch(
           name: input.name as string,
           type: input.type as 'llm' | 'command',
           scope: input.scope as 'global' | 'workspace',
+          // Every optional TaskCreateInput field must be forwarded here: this
+          // handler lists them by hand, and a forgotten one is dropped silently
+          // (autoSend + description were, which made a newly created LLM task
+          // always send immediately and lose its description).
+          ...(input.description !== undefined ? { description: input.description as string } : {}),
           ...(input.workspacePath !== undefined
             ? { workspacePath: input.workspacePath as string }
             : {}),
           ...(input.llmPrompt !== undefined ? { llmPrompt: input.llmPrompt as string } : {}),
+          ...(input.autoSend !== undefined ? { autoSend: input.autoSend as boolean } : {}),
           ...(input.command !== undefined ? { command: input.command as string } : {}),
           ...(input.notifyLlm !== undefined ? { notifyLlm: input.notifyLlm as boolean } : {}),
         }),

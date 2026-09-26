@@ -174,24 +174,30 @@ async function main() {
   // 3. Hover the run segment → tooltip bubble with the run hint. The official
   // Tooltip listens to React onMouseEnter; the first CDP mouseMoved only parks
   // the pointer, so move to a neutral spot first, then onto the button center.
-  const runRect = await evaluate(`(() => {
-    const run = document.querySelector('[aria-label="运行"], [aria-label="Run"]')
-    const r = run.getBoundingClientRect()
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
-  })()`)
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
-  await sleep(150)
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: runRect.x, y: runRect.y })
-  await sleep(700)
-  results.tooltip = await evaluate(`(() => {
-    const bubbles = [...document.querySelectorAll('span')].filter(
-      (el) =>
-        (el.textContent.includes('在当前工作区运行任务配置') ||
-          el.textContent.includes('in the current workspace')) &&
-        el.children.length === 0,
-    )
-    return { found: bubbles.length > 0, text: bubbles[0]?.textContent ?? '' }
-  })()`)
+  // The bubble is matched by role instead of by a childless <span> (dsh
+  // 0.1.7-rc.2 wraps the label in its own <span class="label">), the rect is
+  // re-measured per attempt (the combo can still be re-laying out right after
+  // the menu closes), and the whole hover is retried while the bubble is absent.
+  const HINT_ZH = '在当前工作区运行任务配置'
+  const HINT_EN = 'in the current workspace'
+  results.tooltip = { found: false, text: '' }
+  for (let attempt = 0; attempt < 6 && !results.tooltip.found; attempt += 1) {
+    const hoverRect = await evaluate(`(() => {
+      const run = document.querySelector('[aria-label="运行"], [aria-label="Run"]')
+      const r = run.getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    })()`)
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
+    await sleep(150)
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hoverRect.x, y: hoverRect.y })
+    await sleep(400)
+    results.tooltip = await evaluate(`(() => {
+      const bubbles = [...document.querySelectorAll('[role="tooltip"]')].filter(
+        (el) => el.textContent.includes('${HINT_ZH}') || el.textContent.includes('${HINT_EN}'),
+      )
+      return { found: bubbles.length > 0, text: bubbles[0]?.textContent ?? '' }
+    })()`)
+  }
 
   console.log('=== RUNCOMBO UI ===')
   console.log(JSON.stringify(results, null, 2))

@@ -3,9 +3,10 @@
  * custom `task` kind, runs the command on the DSH `shell` service (cwd = the
  * task's workspace path; the concrete shell is the platform's sandboxed one —
  * bash on POSIX, PowerShell on win32), suppresses the tool-jobs default notice
- * by keeping a `jobs.wait` pending (settlement marks the job `reported`), and
- * then sends the plugin's own brief English completion message per
- * `notifyLlm` (official tool-jobs notice shape, `User-started job` marker).
+ * by keeping a `jobs.wait` pending (0.1.7 reports a settlement that released a
+ * live wait as `awaited`, which is exactly what tool-jobs skips), and then
+ * sends the plugin's own brief English completion message per `notifyLlm`
+ * (official tool-jobs notice shape, `User-started job` marker).
  *
  * Sandbox policy: the shell call passes the owning session's resolved mode
  * with the command's cwd as the `workspace-write` root (the caller resolves
@@ -19,12 +20,12 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 // Type-only: the `ctx.jobs` Context merge and the `JobKindMap` extension seat.
-import type { JobId, JobKind, JobSnapshot } from '@deepseek-ai/dsh-jobs'
-import { boundContextSummary, createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { JobId, JobKind, JobView } from '@deepseek-ai/dsh-jobs'
+import { boundContextSummary, type ContextFormed, createUserMessage } from '@deepseek-ai/dsh-llm'
 // Type-only: the `ctx.sandboxPolicy` Context merge.
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
-// Type-only: the `ctx.shell` Context merge.
-import type {} from '@deepseek-ai/dsh-shell'
+// Type-only: the `ctx.shell` Context merge, plus the live execution handle.
+import type { ShellExecution } from '@deepseek-ai/dsh-shell'
 import type { TaskRecord } from './tasks.ts'
 
 /** The custom job kind this plugin registers (declaration merge below). */
@@ -37,6 +38,17 @@ declare module '@deepseek-ai/dsh-jobs' {
   }
 }
 
+/**
+ * Declare this plugin's own message source. 0.1.7 removed the shared catch-all
+ * `plugin` kind — every producer names itself in its own module, exactly like
+ * the official `tool-jobs` source.
+ */
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'task-runner': { kind: 'task-runner' } & ContextFormed
+  }
+}
+
 /** Max wait bound for the notice-suppression waiter (24h; jobs settle far sooner). */
 const NOTICE_WAIT_MS = 86_400_000
 
@@ -46,7 +58,7 @@ const NOTICE_WAIT_MS = 86_400_000
  * output with job_output.`) — only the `background job` head becomes
  * `User-started job`. The model reads the full output itself.
  */
-export function completionNoticeText(snapshot: JobSnapshot): string {
+export function completionNoticeText(snapshot: JobView): string {
   const status =
     snapshot.detail === undefined
       ? `[status: ${snapshot.status}]`
@@ -55,7 +67,7 @@ export function completionNoticeText(snapshot: JobSnapshot): string {
 }
 
 /** One-line notice summary (the collapsed transcript row). */
-function completionSummary(snapshot: JobSnapshot): string {
+function completionSummary(snapshot: JobView): string {
   return boundContextSummary(`task ${snapshot.id} ${snapshot.status}`)
 }
 
@@ -88,7 +100,8 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
   const id = jobs.start({
     kind: TASK_JOB_KIND as JobKind,
     label: task.name,
-    owner: agent,
+    // 0.1.7: a job's owner is the owning SessionId, not the Agent handle.
+    owner: agent.id,
     // No outputLimitBytes: the job keeps the FULL final output readable via
     // `jobs.read`/job_output; the executor's own cap bounds memory (spill
     // files carry the full stream).
@@ -107,19 +120,30 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
           ? {}
           : { sandboxPolicy: { mode: policy.mode, workspaceRoot: cwd } }),
       })
-      const proc = shell.start(spec)
+      // 0.1.7: `execute` replaced `start` and is async, while `JobSpec.run`
+      // must return its hooks synchronously — so the spawn promise is captured
+      // here and the hooks below project it. The spawn still happens inside the
+      // starter, i.e. after the registry's admission preflight.
+      let killedReason: string | undefined
+      let live: ShellExecution | undefined
+      const spawned = shell.execute(spec).then((proc) => {
+        live = proc
+        if (killedReason !== undefined) proc.kill()
+        return proc
+      })
       return {
         cancel: (reason?: string) => {
-          void reason
-          proc.kill()
+          killedReason = reason
+          live?.kill()
         },
-        done: proc.done.then(() => {
+        done: spawned.then(async (proc) => {
+          await proc.done
           const exitCode = proc.exitCode
           // One final read collects the whole stdout+stderr delta (buffered
           // output stays readable after exit); lossy reads carry spill paths.
-          const read = proc.readOutput?.()
-          let output = read?.delta ?? ''
-          if (read?.lossy === true) {
+          const read = proc.readOutput()
+          let output = read.delta
+          if (read.lossy) {
             const paths = [read.stdoutSpillPath, read.stderrSpillPath].filter(
               (path): path is string => path !== undefined,
             )
@@ -133,14 +157,14 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
             return {
               status: 'completed' as const,
               detail: `exit code: ${exitCode}`,
-              ...(output.length > 0 ? { output } : {}),
+              ...(output.length > 0 ? { result: output } : {}),
             }
           }
           if (proc.status === 'killed') return { status: 'killed' as const }
           return {
             status: 'failed' as const,
             ...(exitCode !== null ? { detail: `exit code: ${exitCode}` } : {}),
-            ...(output.length > 0 ? { output } : {}),
+            ...(output.length > 0 ? { result: output } : {}),
           }
         }),
       }
@@ -151,7 +175,7 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
 }
 
 /**
- * Keep one `jobs.wait` pending so settlement marks the job `reported`
+ * Keep one `jobs.wait` pending so the settlement is reported `awaited`
  * (suppressing the tool-jobs default notice), then deliver the plugin's own
  * notification when `notify` is true. Idle agents are woken with `followup`;
  * busy agents get an `inject` so the message queues for the next step.
@@ -161,9 +185,11 @@ function monitorCompletion(ctx: Context, id: JobId, owner: Agent, notify: boolea
     try {
       const jobs = ctx.get('jobs')
       if (jobs === undefined) return
-      let snapshot: JobSnapshot = await jobs.wait(id, NOTICE_WAIT_MS, owner)
+      // 0.1.7: the waiter is addressed by SessionId (the Agent's id), not the
+      // Agent handle itself.
+      let snapshot: JobView = await jobs.wait(id, NOTICE_WAIT_MS, owner.id)
       while (!isTerminal(snapshot.status)) {
-        snapshot = await jobs.wait(id, NOTICE_WAIT_MS, owner)
+        snapshot = await jobs.wait(id, NOTICE_WAIT_MS, owner.id)
       }
       if (!notify) return
       // The owner may have been disposed while the command ran.
@@ -171,8 +197,7 @@ function monitorCompletion(ctx: Context, id: JobId, owner: Agent, notify: boolea
       const message = createUserMessage({
         content: [{ type: 'text', text: completionNoticeText(snapshot) }],
         source: {
-          kind: 'plugin',
-          plugin: 'task-runner',
+          kind: 'task-runner',
           form: 'notice',
           summary: completionSummary(snapshot),
         },
@@ -185,6 +210,6 @@ function monitorCompletion(ctx: Context, id: JobId, owner: Agent, notify: boolea
   })()
 }
 
-function isTerminal(status: JobSnapshot['status']): boolean {
+function isTerminal(status: JobView['status']): boolean {
   return status === 'completed' || status === 'killed' || status === 'failed'
 }

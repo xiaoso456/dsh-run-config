@@ -27,7 +27,10 @@ const shell = ctx.get('shell')
 if (shell === undefined) throw new Error('shell service did not mount')
 
 const spec = shell.resolve({ command: 'Write-Output hello-from-pwsh' })
-const result = await shell.run(spec)
+// dsh 0.1.7 replaced the synchronous `run()` with the async `execute()` handle;
+// the foreground projection is `result()`.
+const execution = await shell.execute(spec)
+const result = await execution.result()
 console.log(JSON.stringify(result, null, 1))
 
 const pass = result.exitCode === 0

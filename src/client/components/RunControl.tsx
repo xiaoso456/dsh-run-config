@@ -16,11 +16,11 @@
 // Type-only: the ui-conversation standard-kit merge (useInput / inputActions).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
-  IconCheckOutline16,
-  IconCodeOutline16,
-  IconSettingsOutline16,
-  IconThinkOutline16,
-  IconWarningOutline16,
+  IconCheckOutlineRegular,
+  IconCodeOutlineRegular,
+  IconSettingsOutlineRegular,
+  IconThinkOutlineRegular,
+  IconWarningOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -74,7 +74,7 @@ export function RunControl({
 
   // Load tasks once and after every mutation revision.
   useTaskLoader(rpc, snap.revision, (message) => {
-    showToast(message, <IconWarningOutline16 size={14} />)
+    showToast(message, <IconWarningOutlineRegular size={14} />)
   })
 
   const visible = useMemo(() => snap.tasks ?? [], [snap.tasks])
@@ -97,7 +97,10 @@ export function RunControl({
     if (task.type === 'llm') {
       const prompt = task.llmPrompt ?? ''
       if (prompt.trim().length === 0) {
-        showToast(t('runFailed', { message: 'empty prompt' }), <IconWarningOutline16 size={14} />)
+        showToast(
+          t('runFailed', { message: 'empty prompt' }),
+          <IconWarningOutlineRegular size={14} />,
+        )
         return
       }
       inputActions.setDraft(prompt)
@@ -105,7 +108,7 @@ export function RunControl({
         inputActions.submit()
       } else {
         // autoSend off: fill the composer and let the user edit before sending.
-        showToast(t('filledIn'), <IconCheckOutline16 size={14} />)
+        showToast(t('filledIn'), <IconCheckOutlineRegular size={14} />)
       }
       return
     }
@@ -113,14 +116,14 @@ export function RunControl({
     void rpc
       .call('tasks/run', { id: task.id, sessionId, locale: getActiveLocale() })
       .then((res) => {
-        showToast(t('started', { id: res.jobId }), <IconCheckOutline16 size={14} />)
+        showToast(t('started', { id: res.jobId }), <IconCheckOutlineRegular size={14} />)
       })
       .catch((error) => {
         showToast(
           t('runFailed', {
             message: String(error instanceof Error ? error.message : error),
           }),
-          <IconWarningOutline16 size={14} />,
+          <IconWarningOutlineRegular size={14} />,
         )
       })
       .finally(() => {
@@ -165,7 +168,7 @@ export function RunControl({
     {
       id: EDIT_CONFIG,
       label: t('editConfig'),
-      icon: <IconSettingsOutline16 size={14} />,
+      icon: <IconSettingsOutlineRegular size={14} />,
     },
   ]
 
@@ -186,9 +189,9 @@ export function RunControl({
       <RunCombo
         icon={
           selected === undefined ? undefined : selected.type === 'llm' ? (
-            <IconThinkOutline16 size={14} />
+            <IconThinkOutlineRegular size={14} />
           ) : (
-            <IconCodeOutline16 size={14} />
+            <IconCodeOutlineRegular size={14} />
           )
         }
         name={selected?.name}
@@ -237,7 +240,11 @@ export function RunControl({
       id: task.id,
       label: task.name,
       icon:
-        task.type === 'llm' ? <IconThinkOutline16 size={14} /> : <IconCodeOutline16 size={14} />,
+        task.type === 'llm' ? (
+          <IconThinkOutlineRegular size={14} />
+        ) : (
+          <IconCodeOutlineRegular size={14} />
+        ),
     }
   }
 }

@@ -23,15 +23,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: the session standard props (sessionId / useSessions / useSession)
 // and the ui-session service merge.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-// Type-only: the `ctx.settingsScope` Context merge (the scope binder).
+// Type-only: the `ctx.configForms` Context merge (shared config forms + writes).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the `ctx.uiWorkspace` Context merge (workspace navigation).
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import {
-  type HeroInputActions,
-  HeroRunControl,
-  type HeroRunControlInjected,
-} from './components/HeroRunControl.tsx'
+import { HeroRunControl, type HeroRunControlInjected } from './components/HeroRunControl.tsx'
 import {
   RunConfigDialog,
   type RunConfigDialogInjected,
@@ -41,16 +37,31 @@ import { RunControl, type RunControlInjected } from './components/RunControl.tsx
 import { en, NS, zh } from './core/locales.ts'
 import { createTaskRunnerRpc } from './core/rpc.ts'
 
-/** Required services: slots (registration), locale, the wire, the settings scope binder, the pure workspace controller, workspace navigation, and sessions (hero connect + run handoff). */
+/** Required services: slots (registration), locale, the wire, the shared configuration forms, the session-addressed conversation input facade (hero LLM runs), the Session object layer, workspace navigation, and the pure workspace controller. */
 export const inject = [
   'slots',
   'locale',
   'connection',
-  'settingsScope',
+  'configForms',
+  'conversation',
   'sessions',
   'workspaces',
   'uiWorkspace',
 ]
+
+/** Structural view of one session's composer actions (the `InputActions` face session-scoped slots receive). */
+interface SessionInputFace {
+  setDraft(text: string): void
+  submit(): void
+}
+
+/** Structural view of the two official seams a hero LLM run needs. */
+interface SessionRunnables {
+  /** Scope-addressed conversation service (root singleton). */
+  conversation?: { input: { for(actx: unknown): SessionInputFace | undefined } }
+  /** Client Session object layer: binds a session id to its scoped context. */
+  sessions?: { binding(id: unknown): { ctx: unknown } | undefined }
+}
 
 /**
  * Mount the task-runner UI.
@@ -61,10 +72,39 @@ export function apply(ctx: ClientContext): void {
 
   const connection = ctx.get('connection') as unknown as ConnectionHandle
   const rpc = createTaskRunnerRpc(connection)
-  const settings = ctx.settingsScope.bind<TaskRunnerDialogSettings>({
-    namespace: 'task-runner',
-  })
+  // The plugin's live configuration (the `task-runner` profile entry's volatile
+  // fields). 0.1.7 replaced the settings scope binder with the shared config
+  // forms; `set` resolves `false` for a Host refusal instead of rejecting.
+  const settings = ctx.configForms.get<TaskRunnerDialogSettings>('task-runner')
   const getActiveLocale = (): string => ctx.locale.getLocale().active
+
+  // Hero LLM runs need the connected session's composer actions, and a BLANK
+  // session renders no session header — so the pending-run slot alone would
+  // never be consumed there. Resolve them through the official session-
+  // addressed seams instead: bind the session id to its scoped context, then
+  // take that session's input facade (setDraft + submit = the standard send
+  // flow). The binding can trail the connect call, hence the bounded retry.
+  const { conversation, sessions } = {
+    conversation: ctx.get('conversation'),
+    sessions: ctx.get('sessions'),
+  } as unknown as SessionRunnables
+  const deliverLlmTask = async (
+    sessionId: string,
+    prompt: string,
+    autoSend: boolean,
+  ): Promise<boolean> => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const binding = sessions?.binding(sessionId)
+      const input = binding === undefined ? undefined : conversation?.input.for(binding.ctx)
+      if (input !== undefined) {
+        input.setDraft(prompt)
+        if (autoSend) input.submit()
+        return true
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+    return false
+  }
 
   // Report the UI locale to the Host so the approval gate renders its reason
   // in the user's language (fire-and-forget; the gate falls back to 'en').
@@ -103,19 +143,9 @@ export function apply(ctx: ClientContext): void {
 
   // Hero page: composite (workspace picker + run control) shadowing the
   // default picker at a lower priority (lowest priority renders). The llm-run
-  // handoff reads the renderer-host provide bundle for the current session's
-  // input actions (blank sessions have no header to consume the run). The
-  // host-side dsh-session merge shadows `ctx.sessions`, so read the runtime
-  // face structurally through ctx.get.
-  const sessions = ctx.get('sessions') as unknown as {
-    currentProvideInfo: {
-      getSnapshot(): {
-        sessionId: string | undefined
-        props: Record<string, unknown>
-      }
-      subscribe(listener: () => void): () => void
-    }
-  }
+  // handoff rides the shared store's pending-run slot: the session header
+  // consumes and executes it once the connected session is current (the hero
+  // unmounts at that point).
   ctx.slots.inject('conversation.hero.workspace', () =>
     ctx.slots.register(
       {
@@ -126,11 +156,7 @@ export function apply(ctx: ClientContext): void {
           rpc,
           connectWorkspace: (workspaceId) => ctx.uiWorkspace.connectWorkspace(workspaceId),
           createWorkspace: (input) => ctx.workspaces.create({ path: input }),
-          getCurrentInputActions: () =>
-            sessions.currentProvideInfo.getSnapshot().props.inputActions as
-              | HeroInputActions
-              | undefined,
-          subscribeCurrentSession: (listener) => sessions.currentProvideInfo.subscribe(listener),
+          deliverLlmTask,
         }),
       },
       HeroRunControl,

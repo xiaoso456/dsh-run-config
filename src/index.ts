@@ -3,8 +3,9 @@
  *
  * Wires the persistent task store (storage domain), the browser RPC routes on
  * the shared Connection `/api` channel (task CRUD + command runs, see
- * host/rpc.ts), the `task-runner` settings namespace (`toolEnabled`), and the
- * `task_run_config` LLM tool whose registration follows the switch dynamically.
+ * host/rpc.ts), the plugin's own `Config` (`toolEnabled` holds the switch that
+ * exposes the `task_run_config` tool), and the tool itself, whose registration
+ * follows that switch dynamically.
  *
  * Run semantics: `llm` tasks run purely in the browser (standard send flow);
  * `command` tasks run here as background jobs (see host/command.ts).
@@ -20,7 +21,7 @@ import type {} from '@deepseek-ai/dsh-storage-domain'
 // structural cast in host/skill.ts — dsh-skill is not a project dependency.)
 import type {} from '@deepseek-ai/dsh-tools'
 import { registerTaskRunnerRpc } from './host/rpc.ts'
-import { installTaskRunnerSettings } from './host/settings.ts'
+import { installTaskRunnerSwitch, type TaskRunnerSettings } from './host/settings.ts'
 import { registerRunConfigurationSkill } from './host/skill.ts'
 import { openTaskStore, type TaskStore } from './host/tasks.ts'
 import { registerTaskRunnerApprovalGate } from './host/tool/approval.ts'
@@ -28,6 +29,13 @@ import { registerTaskRunnerTool } from './host/tool/tool.ts'
 
 /** Host plugin name (also the profile patch row id). */
 export const name = 'task-runner'
+
+/**
+ * The plugin's declared configuration. Re-exported from the entry module so
+ * Cordis reads it off this plugin's namespace; the settings form identifies
+ * the entry by its profile row id (`task-runner`).
+ */
+export { Config } from './host/settings.ts'
 
 /**
  * Hard service dependencies. `approval` is intentionally NOT here: following
@@ -43,12 +51,19 @@ export const name = 'task-runner'
  */
 export const inject = ['storageDomain', 'tools', 'connection', 'agents', 'skills']
 
-/** Host plugin body. */
-export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise<void> {
+/**
+ * Host plugin body.
+ * @param ctx - the host plugin context.
+ * @param config - resolved plugin configuration (volatile live references).
+ */
+export async function apply(
+  ctx: import('@deepseek-ai/cordis').Context,
+  config: TaskRunnerSettings,
+): Promise<void> {
   // Task store: opens the storage domain and closes it on teardown.
   const store: TaskStore = await openTaskStore(ctx)
 
-  // Tool registration follows the settings switch (`toolEnabled`, default on).
+  // Tool registration follows the live `toolEnabled` switch (default on).
   // The `run-configuration` skill (detailed usage guide) rides the same
   // switch: it only makes sense while the tool is exposed.
   let toolDisposer: (() => void) | undefined
@@ -78,7 +93,7 @@ export async function apply(ctx: import('@deepseek-ai/cordis').Context): Promise
       skillDisposer = undefined
     }
   }
-  installTaskRunnerSettings(ctx, syncTool)
+  installTaskRunnerSwitch(ctx, config, syncTool)
   ctx.effect(
     () => () => {
       toolDisposer?.()

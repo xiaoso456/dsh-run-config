@@ -1,8 +1,10 @@
 /**
  * Integration test for the command-task runner: starts a real background job
  * (jobs-local registry) with the custom `task` kind, runs it on a stub shell,
- * and verifies the completion monitor marks the job reported and delivers the
- * fixed-template notification to the owning agent (followup when idle).
+ * and verifies the completion monitor keeps a live wait (so the settlement is
+ * reported `awaited` and the official tool-jobs notice is suppressed) and
+ * delivers the fixed-template notification to the owning agent (followup when
+ * idle).
  */
 
 import { Context } from '@deepseek-ai/cordis'
@@ -85,18 +87,20 @@ const stubShell = {
       sandboxPolicy: request.sandboxPolicy,
     }
   },
-  start: () => ({
-    status: 'completed' as const,
-    exitCode: 0,
-    signal: null,
-    done: Promise.resolve(),
-    readOutput: () => ({
-      delta: shellOutput,
-      lossy: shellLossy,
-      ...(shellSpillPath !== undefined ? { stdoutSpillPath: shellSpillPath } : {}),
+  // 0.1.7: `execute` replaced `start` and resolves with the live handle.
+  execute: () =>
+    Promise.resolve({
+      status: 'completed' as const,
+      exitCode: 0,
+      signal: null,
+      done: Promise.resolve(),
+      readOutput: () => ({
+        delta: shellOutput,
+        lossy: shellLossy,
+        ...(shellSpillPath !== undefined ? { stdoutSpillPath: shellSpillPath } : {}),
+      }),
+      kill: () => true,
     }),
-    kill: () => true,
-  }),
 }
 
 function commandTask(): TaskRecord {
@@ -119,13 +123,16 @@ const tick = () =>
   })
 
 describe('runCommandTask', () => {
-  it('starts a `task`-kind job, marks it reported, and notifies the idle owner', async () => {
+  it('starts a `task`-kind job, keeps a live wait, and notifies the idle owner', async () => {
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
     const agent = stubAgent(ctx, 'session-test')
     ctx.agents.register(agent)
+    // 0.1.7 registers agents through a composite effect: let it enter the store
+    // before a job resolves its live owner.
+    await tick()
     ctx.provide('shell', stubShell)
     // Deployment policy rooted elsewhere: the run must still confine the
     // command to the run cwd (the bug that made `echo ok > marker` fail with
@@ -135,6 +142,16 @@ describe('runCommandTask', () => {
         mode: 'workspace-write' as const,
         workspaceRoot: 'D:\\deploy',
       }),
+    })
+
+    // 0.1.7 replaced the `reported` flag with `awaited`: a settlement that
+    // released a live `jobs.wait` is the one tool-jobs skips, which is exactly
+    // how our pending monitor suppresses the official notice.
+    const settled: { awaited?: boolean; cause?: string } = {}
+    ctx.jobs.events.subscribe({ owner: agent.id }, (event) => {
+      if (event.type !== 'settled') return
+      settled.awaited = event.awaited
+      settled.cause = event.cause
     })
 
     shellRequests.length = 0
@@ -154,10 +171,11 @@ describe('runCommandTask', () => {
     await tick()
     await tick()
 
-    const snapshot = ctx.jobs.get(id as JobId, agent)
+    const snapshot = ctx.jobs.get(id as JobId, agent.id)
     expect(snapshot.status).toBe('completed')
-    // The pending wait marked the job reported (tool-jobs notice suppressed).
-    expect(snapshot.reported).toBe(true)
+    // The pending wait released on settlement (tool-jobs notice suppressed).
+    expect(settled.awaited).toBe(true)
+    expect(settled.cause).toBe('producer')
 
     // Idle owner → followup with the fixed English template (official
     // tool-jobs shape: brief status + job_output pointer, no output body).
@@ -177,6 +195,9 @@ describe('runCommandTask', () => {
     ctx.jobs.attachController('test-controller')
     const agent = stubAgent(ctx, 'session-test')
     ctx.agents.register(agent)
+    // 0.1.7 registers agents through a composite effect: let it enter the store
+    // before a job resolves its live owner.
+    await tick()
     ctx.provide('shell', stubShell)
     shellOutput = 'ignored output'
     shellLossy = false
@@ -200,6 +221,9 @@ describe('runCommandTask', () => {
     ctx.jobs.attachController('test-controller')
     const agent = stubAgent(ctx, 'session-test')
     ctx.agents.register(agent)
+    // 0.1.7 registers agents through a composite effect: let it enter the store
+    // before a job resolves its live owner.
+    await tick()
     ctx.provide('shell', stubShell)
     shellOutput = 'hello\nworld\n'
     shellLossy = false
@@ -218,10 +242,12 @@ describe('runCommandTask', () => {
     expect(message.content[0]?.text).toBe(
       'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
     )
-    const snapshot = ctx.jobs.get('task-1' as JobId, agent)
+    const snapshot = ctx.jobs.get('task-1' as JobId, agent.id)
     expect(snapshot.outputLimitBytes).toBeUndefined()
-    const read = ctx.jobs.read('task-1' as JobId, agent)
-    expect(read.text).toBe('hello\nworld\n')
+    const read = ctx.jobs.read('task-1' as JobId, agent.id)
+    // 0.1.7: a producer's outcome rides `JobRead.result` (the ring carries
+    // streamed chunks; this job deliberately streams nothing).
+    expect(read.result).toBe('hello\nworld\n')
   })
 
   it('keeps the spill-file pointer on the job when the executor truncated', async () => {
@@ -231,6 +257,9 @@ describe('runCommandTask', () => {
     ctx.jobs.attachController('test-controller')
     const agent = stubAgent(ctx, 'session-test')
     ctx.agents.register(agent)
+    // 0.1.7 registers agents through a composite effect: let it enter the store
+    // before a job resolves its live owner.
+    await tick()
     ctx.provide('shell', stubShell)
     shellOutput = 'tail of the long output'
     shellLossy = true
@@ -249,8 +278,8 @@ describe('runCommandTask', () => {
     expect(message.content[0]?.text).toBe(
       'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
     )
-    const read = ctx.jobs.read('task-1' as JobId, agent)
-    expect(read.text).toBe(
+    const read = ctx.jobs.read('task-1' as JobId, agent.id)
+    expect(read.result).toBe(
       'tail of the long output\n[Output truncated; read D:\\tmp\\task-stdout.spill for full output]',
     )
   })

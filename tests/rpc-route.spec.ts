@@ -56,13 +56,13 @@ function stubStore(): TaskStore {
 }
 
 /** Mount the plugin's routes the way `apply` does and return the captured registry. */
-async function mount(): Promise<Map<string, RegisteredRoute>> {
+async function mount(store: TaskStore = stubStore()): Promise<Map<string, RegisteredRoute>> {
   const routes = new Map<string, RegisteredRoute>()
   const ctx = new Context()
   ctx.provide('connection', fakeConnection(routes))
   await new Promise<void>((resolve) => {
     ctx.inject(['connection'], (connectionCtx) => {
-      registerTaskRunnerRpc(connectionCtx, stubStore())
+      registerTaskRunnerRpc(connectionCtx, store)
       resolve()
     })
   })
@@ -163,5 +163,54 @@ describe('task-runner Fetch routes (dsh 0.1.5 wire)', () => {
     if (route === undefined) throw new Error('tasks/list route missing')
     const response = await route.fetch(request('/api/task-runner/tasks/list', 'not json'))
     expect(response.status).toBe(400)
+  })
+
+  it('forwards every optional task field on create (autoSend, description, notifyLlm)', async () => {
+    // `tasks/create` lists its fields by hand, so a forgotten one is dropped
+    // silently: `autoSend` and `description` were, which made a newly created
+    // LLM task always send immediately and lose its description.
+    let captured: Record<string, unknown> | undefined
+    const store = {
+      ...stubStore(),
+      create: async (input: Record<string, unknown>) => {
+        captured = input
+        return {
+          id: 'task-new',
+          name: input.name,
+          type: input.type,
+          scope: input.scope,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }
+      },
+    } as unknown as TaskStore
+    const routes = await mount(store)
+    const route = routes.get(taskRunnerRoutePath('tasks/create'))
+    if (route === undefined) throw new Error('tasks/create route missing')
+    const response = await route.fetch(
+      request('/api/task-runner/tasks/create', {
+        type: 'client-request',
+        rpcId: 'rpc-4',
+        method: 'task-runner/tasks/create',
+        payload: {
+          name: '发布前审查',
+          description: '检查变更',
+          type: 'llm',
+          scope: 'global',
+          llmPrompt: 'review',
+          autoSend: false,
+          notifyLlm: false,
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    // `false` must survive: the handler tests `!== undefined`, not truthiness.
+    expect(captured).toMatchObject({
+      name: '发布前审查',
+      description: '检查变更',
+      llmPrompt: 'review',
+      autoSend: false,
+      notifyLlm: false,
+    })
   })
 })

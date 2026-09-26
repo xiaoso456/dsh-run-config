@@ -3,18 +3,18 @@
  * notice shape with the `User-started job` marker.
  */
 
-import type { JobId, JobSnapshot } from '@deepseek-ai/dsh-jobs'
+import type { JobId, JobView } from '@deepseek-ai/dsh-jobs'
 import { describe, expect, it } from 'vitest'
 import { completionNoticeText } from '../src/host/command.ts'
 
-function snapshot(overrides: Partial<JobSnapshot> = {}): JobSnapshot {
+function snapshot(overrides: Partial<JobView> = {}): JobView {
   return {
     id: 'task-1' as JobId,
     kind: 'task',
     label: '每日总结',
     status: 'completed',
     startedAt: 0,
-    reported: false,
+    output: { total: 0, earliest: 0 },
     ...overrides,
   }
 }

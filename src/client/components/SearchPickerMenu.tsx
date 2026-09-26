@@ -13,8 +13,8 @@
  */
 
 import {
-  IconCheckOutline16,
-  IconSearchOutline16,
+  IconCheckOutlineRegular,
+  IconSearchOutlineRegular,
   type MenuEntry,
   type MenuItem,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -238,7 +238,7 @@ export function SearchPickerMenu({
       role="menu"
     >
       <div className={css.searchWrap}>
-        <IconSearchOutline16 className={css.searchIcon} size={13} />
+        <IconSearchOutlineRegular className={css.searchIcon} size={13} />
         <input
           className={css.search}
           placeholder={searchPlaceholder}
@@ -279,7 +279,7 @@ export function SearchPickerMenu({
                 </span>
                 {selected ? (
                   <span className={css.check}>
-                    <IconCheckOutline16 size={12} />
+                    <IconCheckOutlineRegular size={12} />
                   </span>
                 ) : null}
               </button>
