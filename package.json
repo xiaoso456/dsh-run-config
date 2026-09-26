@@ -136,7 +136,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "build:types": "tsc -p tsconfig.build.json",
+    "build:types": "node -e \"require('node:fs').rmSync('lib/types',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "prepare": "pnpm run build:types && pnpm run build",
     "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm test",
     "watch": "tsdown --watch",
