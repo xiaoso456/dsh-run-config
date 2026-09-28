@@ -20,11 +20,12 @@ with one click from the session header and the new-session page.
   - Two scopes: **global** (visible in every workspace) and **workspace**
     (visible only in the declared workspace)
 - **New-session run control**: pick and run a configuration before entering
-  a session
+  a session (**LLM configurations only** — a command configuration needs an
+  existing session working directory and runs from the session header)
 - **LLM integration**: the model can list and manage configurations through
   the `task_run_config` tool (write actions go through the standard
-  approval flow); detailed usage is loaded on demand via the
-  `run-configuration` skill
+  approval flow — **in full-access mode the official semantics skip it**);
+  detailed usage is loaded on demand via the `run-configuration` skill
 
 ![Run-config dialog](docs/images/dialog.png)
 
@@ -36,10 +37,10 @@ Just say it in a session:
 > with one click later
 
 The model calls the `task_run_config` tool to create a command
-configuration (write actions show an approval prompt), and once created you
-can pick it from the session header and run it with one click.
+configuration (write actions show an approval prompt — unless the session
+runs in full-access mode), and once created you can pick it from the session
+header and run it with one click.
 
-<!-- TODO: screenshot (suggested: the model creating a command configuration in the session, with the approval prompt) -->
 ![Model creating a configuration](docs/images/llm-create.png)
 
 ## Recommended environment & setup
@@ -80,7 +81,7 @@ profile's `pnpm-workspace.yaml`.
 
 - **Node.js** ≥ 22 (per the `engines` field in `package.json`)
 - **Git Bash** (recommended): recommended shell environment on Windows
-- Built for DeepSeek Harness `dsh` v0.1.7-rc.2 and newer (**on the dsh 0.1.5 line, pin `@xiaoso/dsh-run-config@0.1.5`** — 0.2.x is not compatible with that runtime)
+- Built for the DeepSeek Harness `dsh` **0.2.0-rc.1** (this package's `peerDependencies` pins `0.2.0-rc.1` exactly; dsh's plugin version gate compares with `includePrerelease` semantics, so **this plugin's row is disabled whenever the runtime version differs**). On the dsh 0.1.7 line install `@xiaoso/dsh-run-config@0.2.0`, on the 0.1.5 line install `0.1.5` — **0.2.1 is compatible with neither**
 
 ## Build
 

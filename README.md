@@ -12,8 +12,8 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 - **运行配置管理**：IDEA 风格对话框，创建 / 编辑 / 复制 / 删除 / 排序运行配置
   - 两种类型：**LLM 任务配置**（运行后把 Prompt 填入输入框并发送）、**命令任务配置**（后台执行 Shell 命令，完成后通知 LLM）
   - 两种作用域：**全局**（所有工作区可见）、**工作区**（仅当前工作区可见）
-- **新会话页运行控制**：未进入会话时也能选择并运行任务配置
-- **LLM 集成**：大模型可通过 `task_run_config` 工具查看和管理运行配置（写操作走标准审批流程），详细用法通过 `run-configuration` skill 按需加载
+- **新会话页运行控制**：未进入会话时也能选择并运行任务配置（**仅 LLM 类配置**——命令类配置需要已有会话的工作目录，只能在会话页头部运行）
+- **LLM 集成**：大模型可通过 `task_run_config` 工具查看和管理运行配置（写操作走标准审批流程；**完全权限模式下按官方语义免审批**），详细用法通过 `run-configuration` skill 按需加载
 
 ![image-20260823222318093](docs/images/dialog.png)
 
@@ -23,7 +23,7 @@ DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM �
 
 > 把 `git pull && pnpm install` 保存为任务配置，以后一键运行
 
-大模型会调用 `task_run_config` 工具创建命令任务配置（写操作会弹出审批确认），创建后即可在会话头部选择并一键运行。
+大模型会调用 `task_run_config` 工具创建命令任务配置（写操作会弹出审批确认，除非会话处于完全权限模式），创建后即可在会话头部选择并一键运行。
 
 ![image-20260823222125260](docs/images/llm-create.png)
 
@@ -60,7 +60,7 @@ git 安装会跑本包的 `prepare` 脚本构建产物；pnpm ≥10 会在首次
 
 - **Node.js** ≥ 22（`package.json` 的 `engines` 要求）
 - **Git Bash**（推荐）：Windows 上推荐使用 Git Bash 作为 shell 环境
-- 适用于 DeepSeek Harness `dsh` v0.1.7-rc.2 及更高版本（**dsh 0.1.5 线请锁定装 `@xiaoso/dsh-run-config@0.1.5`**——0.2.x 与 0.1.5 运行时不兼容）
+- 适用于 DeepSeek Harness `dsh` **0.2.0-rc.1**（本包 `peerDependencies` 精确写死 `0.2.0-rc.1`；dsh 的插件版本闸门按 `includePrerelease` 精确比对，**运行时版本与之不一致时本插件条目会被禁用**）。dsh 0.1.7 线请装 `@xiaoso/dsh-run-config@0.2.0`，0.1.5 线请装 `0.1.5`——**0.2.1 起不再兼容这两条线**
 
 ## 构建
 
