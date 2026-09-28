@@ -1,14 +1,24 @@
 /**
- * D22: the browser RPC contract on dsh 0.1.5. The Host serves one exact POST
+ * D25: the browser RPC contract on dsh 0.1.7. The Host serves one exact POST
  * route per endpoint on the shared `/api` Connection channel (private channels
  * via `connection.rpc.handle` are gone: the service mounts them on the
- * registering context's `webServer`, which 0.1.5 no longer resolves). These
- * tests pin the route shape, the envelope decode, and the error mapping.
+ * registering context's `webServer`, which neither 0.1.5 nor 0.1.7 resolves).
+ * These tests pin the route shape, the envelope decode, and the error mapping.
  */
 import { Context } from '@deepseek-ai/cordis'
+import type { Agent, Inbox } from '@deepseek-ai/dsh-agent'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
+import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
+import {
+  SESSION_FORMAT_VERSION,
+  Session,
+  type SessionHeader,
+  SessionId,
+} from '@deepseek-ai/dsh-session'
 import { describe, expect, it } from 'vitest'
+import { TASK_RUNNER_RPC_COVERAGE } from '../src/client/core/types.ts'
 import { registerTaskRunnerRpc } from '../src/host/rpc.ts'
-import type { TaskStore } from '../src/host/tasks.ts'
+import type { TaskRecord, TaskStore } from '../src/host/tasks.ts'
 import { TASK_RUNNER_ENDPOINTS, taskRunnerRoutePath } from '../src/shared/wire.ts'
 
 /** One route as the plugin registers it on the Connection Fetch registry. */
@@ -78,7 +88,7 @@ function request(path: string, body: unknown | string): Request {
   })
 }
 
-describe('task-runner Fetch routes (dsh 0.1.5 wire)', () => {
+describe('task-runner Fetch routes (dsh 0.1.7 wire)', () => {
   it('registers one buffered POST route per endpoint below /api', async () => {
     const routes = await mount()
     expect([...routes.keys()].sort()).toEqual(
@@ -89,6 +99,17 @@ describe('task-runner Fetch routes (dsh 0.1.5 wire)', () => {
       expect(route.methods).toEqual(['POST'])
       expect(route.requestBody).toBe('buffered')
     }
+  })
+
+  // `wire.ts` is documented as the single source for the endpoint list, but the
+  // browser keeps a SECOND hand-written list (`TaskRunnerRpcMap`, the typed face
+  // `createTaskRunnerRpc` is built from). The compile-time constraint lives in
+  // `core/types.ts` (`TASK_RUNNER_RPC_COVERAGE`); this asserts that the coverage
+  // map it exports really covers every wire endpoint at runtime too.
+  it('keeps the browser RPC map in step with the wire endpoint list', () => {
+    const covered: string[] = Object.keys(TASK_RUNNER_RPC_COVERAGE)
+    const wire: string[] = [...TASK_RUNNER_ENDPOINTS]
+    expect(covered.sort()).toEqual(wire.sort())
   })
 
   it('answers a valid envelope with the server-response shape', async () => {
@@ -212,5 +233,233 @@ describe('task-runner Fetch routes (dsh 0.1.5 wire)', () => {
       autoSend: false,
       notifyLlm: false,
     })
+  })
+})
+
+/**
+ * `tasks/run` cwd priority — the semantic body of the first-round drift #4/#5:
+ * a command task runs in the OWNING SESSION's cwd and only falls back to the
+ * task's bound workspace when that session has no cwd at all. Both documents
+ * (host/command.ts module header, the dialog's `fieldCommandHint`) and the
+ * implementation promise this, so it is pinned here on the real route.
+ */
+
+/** Let a queued microtask/effect enter the registries before the route reads them. */
+const settle = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, 0)
+  })
+
+interface ShellRequest {
+  command: string
+  workdir?: string
+  sandboxPolicy?: { mode: string; workspaceRoot: string }
+}
+
+/** A stub shell that records every resolved request and completes instantly. */
+const shellRequests: ShellRequest[] = []
+const stubShell = {
+  resolve: (request: ShellRequest) => {
+    shellRequests.push(request)
+    return {
+      command: request.command,
+      workdir: request.workdir ?? '',
+      timeoutMs: 0,
+      stdoutMaxBytes: 0,
+      sandboxPolicy: request.sandboxPolicy,
+    }
+  },
+  execute: () =>
+    Promise.resolve({
+      status: 'completed' as const,
+      exitCode: 0,
+      signal: null,
+      done: Promise.resolve(),
+      readOutput: () => ({ delta: '', lossy: false }),
+      kill: () => true,
+    }),
+}
+
+/** Minimal Inbox double (the command runner never touches it). */
+function stubInbox(): Inbox {
+  return {
+    nextTurn: [],
+    nextStep: [],
+    clear: () => {},
+    append: () => {},
+    prepend: () => {},
+    replace: () => false,
+    remove: () => false,
+    splice: () => [],
+  }
+}
+
+/**
+ * The full creation header `Session.create` validates. `cwd` is optional and
+ * must be absolute when present, exactly like a stored session header.
+ * @param id - the session id the header must echo.
+ * @param cwd - the session's working directory, when it has one.
+ * @returns the header record.
+ */
+function sessionHeader(id: SessionId, cwd: string | undefined): SessionHeader {
+  return {
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    isSeeded: false,
+    ...(cwd === undefined ? {} : { cwd }),
+  }
+}
+
+/** A live agent whose session header carries `cwd` when one is supplied. */
+function stubAgent(ctx: Context, rawId: string, cwd: string | undefined): Agent {
+  const id = SessionId(rawId)
+  const scopeFiber = ctx.plugin(() => {})
+  const session = Session.create(id, undefined, sessionHeader(id, cwd))
+  return {
+    id,
+    options: {},
+    session,
+    inbox: stubInbox(),
+    status: 'idle' as const,
+    ctx: scopeFiber.ctx,
+    send: () => {},
+    followup: () => {},
+    steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
+    inject: () => {},
+    cancel() {},
+    runMaintenance: <T>(job: (signal: AbortSignal) => Promise<T>) =>
+      job(new AbortController().signal),
+    whenIdle() {
+      return Promise.resolve()
+    },
+  } as unknown as Agent
+}
+
+/** A command task with a bound workspace and an explicit scope. */
+function commandTaskRecord(scope: TaskRecord['scope'], workspacePath?: string): TaskRecord {
+  return {
+    id: 'task-run-1',
+    name: '发布检查',
+    type: 'command',
+    scope,
+    ...(workspacePath === undefined ? {} : { workspacePath }),
+    command: 'echo ok',
+    notifyLlm: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  }
+}
+
+/**
+ * Mount the real routes with a live agent, a real jobs registry and a stub
+ * shell, so `tasks/run` performs its own cwd resolution.
+ * @param task - the command task the store serves.
+ * @param sessionCwd - the owning session's cwd (`undefined` = no cwd at all).
+ * @returns the captured routes and the record of `tasks/run` responses.
+ */
+async function mountRunner(
+  task: TaskRecord,
+  sessionCwd: string | undefined,
+): Promise<Map<string, RegisteredRoute>> {
+  const routes = new Map<string, RegisteredRoute>()
+  const ctx = new Context()
+  await ctx.plugin(AgentRegistry)
+  await ctx.plugin(LocalJobRegistry)
+  ctx.jobs.attachController('test-controller')
+  const agent = stubAgent(ctx, 'session-run', sessionCwd)
+  ctx.agents.register(agent)
+  await settle()
+  ctx.provide('shell', stubShell)
+  const store = {
+    list: () => [task],
+    get: (id: string) => (id === task.id ? task : undefined),
+  } as unknown as TaskStore
+  ctx.provide('connection', fakeConnection(routes))
+  // `apply` declares `inject = [... 'connection', 'agents' ...]` and registers
+  // the routes in that shadow context, so its handlers may read `ctx.agents`.
+  await new Promise<void>((resolve) => {
+    ctx.inject(['connection', 'agents'], (connectionCtx) => {
+      registerTaskRunnerRpc(connectionCtx, store)
+      resolve()
+    })
+  })
+  return routes
+}
+
+/** POST one `tasks/run` call and decode the server-response envelope. */
+async function callRun(
+  routes: Map<string, RegisteredRoute>,
+): Promise<{ ok: boolean; value?: { jobId?: string }; error?: { code: string; message: string } }> {
+  const route = routes.get(taskRunnerRoutePath('tasks/run'))
+  if (route === undefined) throw new Error('tasks/run route missing')
+  const response = await route.fetch(
+    request('/api/task-runner/tasks/run', {
+      type: 'client-request',
+      rpcId: 'rpc-run',
+      method: 'task-runner/tasks/run',
+      payload: { id: 'task-run-1', sessionId: 'session-run' },
+    }),
+  )
+  expect(response.status).toBe(200)
+  const body = (await response.json()) as {
+    result: { ok: boolean; value?: { jobId?: string }; error?: { code: string; message: string } }
+  }
+  return body.result
+}
+
+describe('tasks/run cwd priority (session cwd first, task workspace as fallback)', () => {
+  it('runs in the SESSION cwd when the session has one, ignoring the task workspace', async () => {
+    shellRequests.length = 0
+    const routes = await mountRunner(
+      commandTaskRecord('workspace', 'D:\\work\\task-workspace'),
+      'D:\\work\\session-cwd',
+    )
+    const result = await callRun(routes)
+    expect(result.ok).toBe(true)
+    expect(result.value?.jobId).toBe('task-1')
+    await settle()
+    // The command ran in the session's cwd, NOT in the task's bound workspace.
+    expect(shellRequests[0]?.workdir).toBe('D:\\work\\session-cwd')
+    expect(shellRequests).toHaveLength(1)
+  })
+
+  it('falls back to the task workspace when the session has NO cwd (hero / new session)', async () => {
+    shellRequests.length = 0
+    const routes = await mountRunner(
+      commandTaskRecord('workspace', 'D:\\work\\task-workspace'),
+      undefined,
+    )
+    const result = await callRun(routes)
+    expect(result.ok).toBe(true)
+    await settle()
+    expect(shellRequests[0]?.workdir).toBe('D:\\work\\task-workspace')
+  })
+
+  it('refuses the run when neither the session nor a workspace-scoped task supplies a cwd', async () => {
+    shellRequests.length = 0
+    const routes = await mountRunner(commandTaskRecord('global'), undefined)
+    const result = await callRun(routes)
+    // Documented behaviour: no silent fallback to the server's deployment cwd.
+    expect(result.ok).toBe(false)
+    expect(result.error).toEqual({
+      code: 'internal',
+      message: 'no working directory for the command task',
+      details: {},
+    })
+    await settle()
+    expect(shellRequests).toHaveLength(0)
+  })
+
+  it('does not resurrect a stale workspacePath on a global task as a fallback', async () => {
+    shellRequests.length = 0
+    const routes = await mountRunner(commandTaskRecord('global', 'D:\\work\\stale'), undefined)
+    const result = await callRun(routes)
+    // The fallback is gated on `scope === 'workspace'`: a global task's
+    // leftover path is not a working directory.
+    expect(result.ok).toBe(false)
+    expect(result.error?.message).toBe('no working directory for the command task')
+    await settle()
+    expect(shellRequests).toHaveLength(0)
   })
 })

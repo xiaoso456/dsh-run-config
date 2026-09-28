@@ -21,7 +21,10 @@
   padding: 4px;
   border: 1px solid var(--dsw-alias-border-inverted);
   border-radius: 12px;
+  /* Translucent official menu surface token: it needs the official blur behind
+     it, or the text underneath prints through the rows. */
   background: var(--dsw-specific-menu);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
   box-shadow: var(--dsw-shadow-lv3);
   /* GPU-only open: opacity + scale (transform), spring-like ease. */
   animation: menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -180,6 +183,17 @@
   flex: none;
   display: flex;
   flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+/* Caller-supplied block pinned under the footer. It renders INSIDE the card on
+   purpose: the card owns the outside-pointerdown judge, so content that lives
+   here (an inline form, say) is interior and a click in it does not dismiss the
+   menu. */
+.footerExtra {
+  flex: none;
   margin-top: 4px;
   padding-top: 4px;
   border-top: 1px solid var(--dsw-alias-border-l2);

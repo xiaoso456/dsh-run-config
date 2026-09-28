@@ -8,8 +8,7 @@
  *  2. create a foreign-workspace task (path that matches no workspace);
  *  3. assert the picker shows a visible task (current-workspace or global),
  *     and neither the picker text nor the dropdown contains the foreign task. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = 'http://127.0.0.1:3190'

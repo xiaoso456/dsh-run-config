@@ -1,0 +1,26 @@
+# Test-only dsh profile overlay for the external-dependency lane.
+#
+# Load it as a launcher overlay, never as a profile edit:
+#
+#   node <dsh>/lib/bin.js --profile dsh-task-runner \
+#     --patch tests/external/mock-llm/dsh-mock-llm.patch.yml \
+#     --port 3190 --no-open
+#
+# `--patch <path>` is the launcher's own "extra patch-list overlay applied after
+# the profile layer" (`dsh --help`), so it is process-scoped: nothing under
+# `$DSH_HOME` is created, edited, or backed up, and the user's real provider
+# configuration and credentials stay exactly as they were.
+#
+# Effect: the `llm-deepseek` entry — the plugin that registers provider route
+# `deepseek-official`, which is also `agent-default-model`'s provider — is
+# re-pointed at the local mock. `baseURL` replaces the `$DEEPSEEK_BASE_URL`
+# fallback (`dsh-llm-deepseek/lib/types/config.d.ts`: "Endpoint base; falls back
+# to $DEEPSEEK_BASE_URL from a trusted environment layer, then the public API"),
+# and `apiKeyEnv` names a mock-only credential so the real `DEEPSEEK_API_KEY` is
+# never resolved at all. Keep the `--port` here in sync with the mock's listen
+# port (the orchestrator renders a copy with the port it actually bound).
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+  config:
+    baseURL: http://127.0.0.1:19399
+    apiKeyEnv: MOCK_LLM_API_KEY

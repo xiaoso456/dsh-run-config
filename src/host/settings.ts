@@ -15,7 +15,12 @@ import type { Context, Volatile } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 
-/** Settings namespace of this plugin (also the storage domain name and locale NS). */
+/**
+ * Settings namespace of this plugin — the same kebab-case string is the locale
+ * NS. It is NOT the storage domain name: the domain is `task_runner`
+ * (underscore), because `defineDomain` only accepts `[a-z0-9_]` (see D11 in the
+ * local decision log and `name: 'task_runner'` in host/tasks.ts).
+ */
 export const TASK_RUNNER_SETTINGS_NS = 'task-runner'
 
 /**
@@ -34,11 +39,6 @@ export interface TaskRunnerSettings {
 export const Config = z.object({
   toolEnabled: z.boolean().default(true).volatile(),
 })
-
-/** Defaults used by the host body when no config was supplied at all. */
-export const DEFAULT_TASK_RUNNER_SETTINGS = {
-  toolEnabled: true,
-} satisfies { toolEnabled: boolean }
 
 /**
  * Drive the tool switch from the live config reference.

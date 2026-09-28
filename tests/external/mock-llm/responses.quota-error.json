@@ -1,0 +1,18 @@
+[
+  {
+    "comment": "Fault-injection control: the mock is UP and answers every request with the very envelope the live provider returned in the 20260927-103210 round (HTTP 402 + '当前请求的额度已用尽'), so the original red can be reproduced with zero external traffic. `dsh-llm-deepseek` maps 402 and any quota-shaped message to its QUOTA failure code.",
+    "when": { "maxTokensAtMost": 64 },
+    "reply": { "text": "Mock 会话标题" }
+  },
+  {
+    "when": {},
+    "reply": {
+      "error": {
+        "status": 402,
+        "type": "insufficient_quota",
+        "code": "insufficient_quota",
+        "message": "当前请求的额度已用尽"
+      }
+    }
+  }
+]

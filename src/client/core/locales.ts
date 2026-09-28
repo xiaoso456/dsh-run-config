@@ -1,8 +1,8 @@
 /**
- * Locale bundles for the dsh-run-config UI. zh is the source of truth for
- * the key set; en is checked complete against it (both dictionaries are
- * `Record<TaskRunnerLocaleKey, string>`, so a missing or extra key in either
- * is a compile error (the official registration enforces bilingual balance).
+ * Locale bundles for the dsh-run-config UI. zh is the source of truth for the
+ * key set; en is checked complete against it — both dictionaries are typed
+ * `Record<TaskRunnerLocaleKey, string>`, so a missing or extra key in either is
+ * a compile error (the official registration enforces bilingual balance).
  * @module @xiaoso/dsh-run-config/client/locales
  */
 
@@ -18,15 +18,22 @@ export type TaskRunnerLocaleKey =
   | 'searchPlaceholder'
   | 'editConfig'
   | 'noVisibleTasks'
+  | 'loadingTasks'
+  | 'tasksLoadFailed'
+  | 'tasksLoadFailedDetail'
   | 'started'
   | 'runFailed'
+  | 'runUnavailable'
   | 'filledIn'
+  | 'draftReplaced'
+  | 'filledInReplaced'
   | 'config'
   | 'heroAddWorkspace'
   | 'heroPathPlaceholder'
   | 'heroCreate'
   | 'heroSearchWorkspace'
   | 'heroNoWorkspaces'
+  | 'heroNoWorkspace'
   | 'configTitle'
   | 'fieldName'
   | 'fieldDescription'
@@ -63,26 +70,35 @@ export type TaskRunnerLocaleKey =
   | 'saveFailed'
   | 'emptyList'
   | 'emptyListHint'
+  | 'noMatchTasks'
+  | 'editingOutsideFilter'
 
 /** Simplified Chinese copy. */
 export const zh: Record<TaskRunnerLocaleKey, string> = {
   run: '运行',
-  runTaskHint: '在当前工作区运行任务配置「{name}」',
+  runTaskHint: '运行任务配置「{name}」（命令任务在当前会话的工作目录执行，LLM 任务向当前会话发送）',
   selectTask: '选择任务运行配置',
   groupGlobal: '全局',
   groupWorkspace: '当前工作区',
   searchPlaceholder: '搜索任务配置…',
   editConfig: '编辑任务配置…',
   noVisibleTasks: '没有可见任务运行配置',
+  loadingTasks: '正在加载任务运行配置…',
+  tasksLoadFailed: '任务配置加载失败',
+  tasksLoadFailedDetail: '任务配置加载失败：{message}',
   started: '已启动 {id}',
   runFailed: '运行失败：{message}',
+  runUnavailable: '该任务配置已不存在，无法运行',
   filledIn: '已填入输入框，可修改后发送',
+  draftReplaced: '已用配置的 Prompt 替换输入框中的原有内容',
+  filledInReplaced: '已填入输入框（原有草稿已被替换），可修改后发送',
   config: '任务运行配置',
   heroAddWorkspace: '添加工作区…',
   heroPathPlaceholder: '输入工作区路径',
   heroCreate: '创建',
   heroSearchWorkspace: '搜索工作区…',
   heroNoWorkspaces: '没有匹配的工作区',
+  heroNoWorkspace: '请先选择一个工作区',
   configTitle: '任务运行配置',
   fieldName: '名称',
   fieldDescription: '描述',
@@ -95,7 +111,7 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   fieldAutoSend: '运行后直接发送',
   fieldAutoSendHint: '关闭后，点击运行仅填入输入框，可修改后发送',
   fieldCommand: '命令',
-  fieldCommandHint: '在任务配置所属工作区执行的 Shell 命令',
+  fieldCommandHint: '在当前会话的工作目录执行的 Shell 命令（会话没有工作目录时用任务所属工作区）',
   fieldNotifyLlm: '完成后通知 LLM',
   fieldNotifyLlmHint: '命令结束后把结果告知 LLM',
   typeLlm: 'LLM 任务配置',
@@ -108,7 +124,7 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   btnSave: '保存',
   savedText: '已保存',
   btnAdd: '新增',
-  btnDuplicate: '复制',
+  btnDuplicate: '复制为同名副本（可在右侧改名）',
   btnDelete: '删除',
   deleteConfirmTitle: '删除任务配置',
   deleteConfirmBody: '确定删除「{name}」？',
@@ -119,27 +135,37 @@ export const zh: Record<TaskRunnerLocaleKey, string> = {
   saveFailed: '保存失败：{message}',
   emptyList: '暂无任务配置',
   emptyListHint: '点击上方 + 新建任务配置',
+  noMatchTasks: '没有匹配的任务运行配置',
+  editingOutsideFilter: '正在编辑的配置不在当前筛选结果中',
 }
 
 /** English copy. */
 export const en: Record<TaskRunnerLocaleKey, string> = {
   run: 'Run',
-  runTaskHint: 'Run configuration "{name}" in the current workspace',
+  runTaskHint:
+    'Run configuration "{name}" (a command runs in the current session working directory; an LLM one is sent to the current session)',
   selectTask: 'Select a run configuration',
   groupGlobal: 'Global',
   groupWorkspace: 'Current workspace',
   searchPlaceholder: 'Search configurations…',
   editConfig: 'Edit configurations…',
   noVisibleTasks: 'No visible run configurations',
+  loadingTasks: 'Loading run configurations…',
+  tasksLoadFailed: 'Failed to load run configurations',
+  tasksLoadFailedDetail: 'Failed to load run configurations: {message}',
   started: 'Started {id}',
   runFailed: 'Run failed: {message}',
+  runUnavailable: 'That run configuration no longer exists',
   filledIn: 'Filled into the composer — edit and send when ready',
+  draftReplaced: 'Replaced the composer draft with this configuration prompt',
+  filledInReplaced: 'Filled into the composer (your draft was replaced) — edit and send when ready',
   config: 'Run configurations',
   heroAddWorkspace: 'Add workspace…',
   heroPathPlaceholder: 'Enter a workspace path',
   heroCreate: 'Create',
   heroSearchWorkspace: 'Search workspaces…',
   heroNoWorkspaces: 'No matching workspaces',
+  heroNoWorkspace: 'Select a workspace first',
   configTitle: 'Run configurations',
   fieldName: 'Name',
   fieldDescription: 'Description',
@@ -152,7 +178,8 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   fieldAutoSend: 'Send immediately on run',
   fieldAutoSendHint: 'When off, running only fills the composer — edit and send when ready',
   fieldCommand: 'Command',
-  fieldCommandHint: 'Shell command run in the configuration workspace',
+  fieldCommandHint:
+    'Shell command run in the current session working directory (falls back to the configuration workspace)',
   fieldNotifyLlm: 'Notify the LLM when finished',
   fieldNotifyLlmHint: 'Reports the result to the LLM after the command ends',
   typeLlm: 'LLM configuration',
@@ -165,7 +192,7 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   btnSave: 'Save',
   savedText: 'Saved',
   btnAdd: 'New',
-  btnDuplicate: 'Duplicate',
+  btnDuplicate: 'Duplicate as a same-named copy (rename it on the right)',
   btnDelete: 'Delete',
   deleteConfirmTitle: 'Delete configuration',
   deleteConfirmBody: 'Delete "{name}"?',
@@ -177,6 +204,8 @@ export const en: Record<TaskRunnerLocaleKey, string> = {
   saveFailed: 'Save failed: {message}',
   emptyList: 'No configurations yet',
   emptyListHint: 'Click + above to create a configuration',
+  noMatchTasks: 'No matching run configurations',
+  editingOutsideFilter: 'Editing a configuration the current filter hides',
 }
 
 /** Merge this plugin's namespace into the slot locale table (official pattern). */

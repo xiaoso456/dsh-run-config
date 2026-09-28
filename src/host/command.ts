@@ -1,19 +1,7 @@
 /**
- * Command-task execution: starts a background job through `ctx.jobs` with the
- * custom `task` kind, runs the command on the DSH `shell` service (cwd = the
- * task's workspace path; the concrete shell is the platform's sandboxed one —
- * bash on POSIX, PowerShell on win32), suppresses the tool-jobs default notice
- * by keeping a `jobs.wait` pending (0.1.7 reports a settlement that released a
- * live wait as `awaited`, which is exactly what tool-jobs skips), and then
- * sends the plugin's own brief English completion message per `notifyLlm`
- * (official tool-jobs notice shape, `User-started job` marker).
- *
- * Sandbox policy: the shell call passes the owning session's resolved mode
- * with the command's cwd as the `workspace-write` root (the caller resolves
- * cwd from the session workspace, falling back to the task's bound
- * workspace), so a command may write inside the directory it runs in
- * regardless of the server's deployment cwd, while every other file effect
- * stays confined to that root.
+ * Command-task execution: a `ctx.jobs` background job (custom `task` kind) on the platform's
+ * sandboxed shell; a pending `jobs.wait` makes the settlement `awaited` so tool-jobs stays silent
+ * and this plugin notifies per `notifyLlm`; cwd is the session workspace + `workspace-write` root.
  * @module @xiaoso/dsh-run-config/command
  */
 

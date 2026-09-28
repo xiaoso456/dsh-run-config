@@ -1,10 +1,11 @@
 node_modules/
-lib/
+/lib/
 dist/
 *.log
 .DS_Store
 .dsh-meow/
 tests/screenshots/
+tests/runs/
 # Internal docs stay local; the README screenshot folder is published.
 docs/*
 !docs/images/

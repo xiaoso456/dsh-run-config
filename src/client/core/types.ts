@@ -5,6 +5,8 @@
  * @module @xiaoso/dsh-run-config/client/types
  */
 
+import type { TaskRunnerEndpoint } from '../../shared/wire.ts'
+
 /** Task type: `llm` sends a prompt into the current session; `command` runs a bash command in the background. */
 export type TaskType = 'llm' | 'command'
 
@@ -55,8 +57,26 @@ export interface TaskRunnerRpcMap {
   'tasks/delete': { args: { id: string }; result: { deleted: boolean } }
   'tasks/duplicate': { args: { id: string }; result: { task: TaskView } }
   'tasks/reorder': { args: { ids: string[] }; result: Record<string, never> }
+  /** Run ONE COMMAND task as a background job; other types are rejected. No `locale` argument. */
   'tasks/run': {
-    args: { id: string; sessionId: string; locale: string }
+    args: { id: string; sessionId: string }
     result: { jobId: string }
   }
+}
+
+/**
+ * Every endpoint `TASK_RUNNER_ENDPOINTS` declares must have a typed entry above:
+ * a new wire endpoint without one of these members is a compile error, so the
+ * browser half cannot fall behind the single source in `shared/wire.ts`
+ * (type-checking alone never compared the two lists).
+ */
+export const TASK_RUNNER_RPC_COVERAGE: Record<TaskRunnerEndpoint, keyof TaskRunnerRpcMap> = {
+  'client/locale': 'client/locale',
+  'tasks/list': 'tasks/list',
+  'tasks/create': 'tasks/create',
+  'tasks/update': 'tasks/update',
+  'tasks/delete': 'tasks/delete',
+  'tasks/duplicate': 'tasks/duplicate',
+  'tasks/reorder': 'tasks/reorder',
+  'tasks/run': 'tasks/run',
 }

@@ -6,8 +6,7 @@
  *  2. otherwise enter a session through the sidebar session list;
  *  3. assert the run control's box lies within the utilities cluster's box and
  *     that its vertical centre matches a neighbouring header control. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl } from './lib/web-session.mjs'
 
 const BASE = 'http://127.0.0.1:3190'

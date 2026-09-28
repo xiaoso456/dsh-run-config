@@ -26,6 +26,7 @@ export function useTaskLoader(
 
   useEffect(() => {
     let cancelled = false
+    taskRunnerStore.beginLoad()
     void rpc
       .call('tasks/list', {})
       .then((res) => {
@@ -34,7 +35,11 @@ export function useTaskLoader(
       })
       .catch((error) => {
         if (cancelled) return
-        onErrorRef.current(String(error instanceof Error ? error.message : error))
+        const message = String(error instanceof Error ? error.message : error)
+        // The store records the failure so the list can say "failed" instead of
+        // "empty" after the toast is gone; the toast is the transient half.
+        taskRunnerStore.setLoadError(message)
+        onErrorRef.current(message)
       })
     return () => {
       cancelled = true

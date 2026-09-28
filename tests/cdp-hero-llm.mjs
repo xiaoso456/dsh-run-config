@@ -13,8 +13,7 @@
  *
  * The current workspace is discovered rather than hardcoded: the hero shows
  * whichever workspace the app selected, which varies per machine/session. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = 'http://127.0.0.1:3190'
@@ -98,9 +97,11 @@ async function main() {
   }
   if (!booted) process.exit(1)
 
-  // Make sure we are on the hero (new-session) page.
+  // Make sure we are on the hero (new-session) page: the workspace chip is
+  // there and the session header's utilities cluster is not. (The English
+  // `Session log` button this used to look for no longer exists.)
   const onHero = await evaluate(
-    `!!document.querySelector('[aria-label="选择工作区"]') && ![...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Session log')`,
+    `!!document.querySelector('[aria-label="选择工作区"]') && document.querySelector('[class*="headerUtilities"]') === null`,
   )
   if (!onHero) {
     await evaluate(`(() => {

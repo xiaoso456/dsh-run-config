@@ -42,11 +42,27 @@ export interface SearchPickerMenuProps {
   onClose: () => void
   /** Search input placeholder. */
   searchPlaceholder: string
-  /** Shown when the query matches nothing. */
-  emptyText: string
+  /**
+   * Shown when there is nothing to list at all (an empty library, or a list
+   * that has not loaded yet). A node is accepted so a load state can show its
+   * own spinner / warning line instead of a bare sentence.
+   */
+  emptyText: ReactNode
+  /**
+   * Shown instead of {@link emptyText} when the list itself is NOT empty and
+   * only the search query matches nothing — the two cases read very
+   * differently to a user ("filtered everything out" vs "you have nothing"),
+   * and reusing the empty wording tells them the opposite of what happened.
+   * Falls back to `emptyText` when omitted.
+   */
+  noMatchText?: ReactNode
   /** Compact 34px rows (official dense variant). */
   dense?: boolean
-  /** Non-selectable entries pinned under the footer (custom content). */
+  /**
+   * Caller block rendered inside the card, below the footer. It sits in the
+   * card's subtree on purpose: the outside-pointerdown judge treats only that
+   * subtree as interior, so an inline form placed here keeps working.
+   */
   footerExtra?: ReactNode
   /**
    * Match the card width to the anchor width (for wide in-form fields like
@@ -112,8 +128,10 @@ export function SearchPickerMenu({
   onClose,
   searchPlaceholder,
   emptyText,
+  noMatchText,
   dense = true,
   matchWidth = false,
+  footerExtra,
   triggerRef,
 }: SearchPickerMenuProps) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -191,14 +209,22 @@ export function SearchPickerMenu({
       if (triggerRef?.current?.contains(event.target) === true) return
       onClose()
     }
+    // Escape is handled in the CAPTURE phase and prevented, exactly like the
+    // official Menu (dsh-client-ui-primitives/lib/index.js:4082-4089): an open
+    // dropdown owns Escape first. The official Modal only closes on an
+    // unprevented Escape (:3690 reads `event.defaultPrevented`), so a bubble
+    // listener that does not prevent also dismissed the whole dialog behind
+    // the dropdown — unsaved form included.
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      event.preventDefault()
+      onClose()
     }
     document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keydown', onKeyDown, true)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keydown', onKeyDown, true)
     }
   }, [open, onClose, triggerRef])
 
@@ -209,11 +235,16 @@ export function SearchPickerMenu({
 
   const needle = query.trim().toLowerCase()
 
+  const allRows: FlatRow[] = useMemo(() => flatten(items), [items])
+
   const rows: FlatRow[] = useMemo(() => {
-    const all = flatten(items)
-    if (needle.length === 0) return all
-    return all.filter((row) => row.text.toLowerCase().includes(needle))
-  }, [items, needle])
+    if (needle.length === 0) return allRows
+    return allRows.filter((row) => row.text.toLowerCase().includes(needle))
+  }, [allRows, needle])
+
+  // "Filtered everything out" needs rows to have existed in the first place:
+  // an empty library plus a stray character is still an empty library.
+  const noMatch = needle.length > 0 && allRows.length > 0
 
   if (!open) return null
 
@@ -253,7 +284,11 @@ export function SearchPickerMenu({
         />
       </div>
       <div className={css.body}>
-        {rows.length === 0 ? <div className={css.empty}>{emptyText}</div> : null}
+        {rows.length === 0 ? (
+          <div className={css.empty}>
+            {noMatch && noMatchText !== undefined ? noMatchText : emptyText}
+          </div>
+        ) : null}
         {rows.map((row) => {
           const showLabel = row.label !== undefined && row.label !== lastLabel
           if (row.label !== undefined) lastLabel = row.label
@@ -304,6 +339,9 @@ export function SearchPickerMenu({
             </button>
           ))}
         </div>
+      ) : null}
+      {footerExtra !== undefined && footerExtra !== null ? (
+        <div className={css.footerExtra}>{footerExtra}</div>
       ) : null}
     </div>
   )

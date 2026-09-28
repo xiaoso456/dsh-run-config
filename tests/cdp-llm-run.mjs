@@ -18,12 +18,18 @@
  * click run → assert the composer/transcript state.
  *
  * usage: DSH_WEB_TOKEN=... node tests/cdp-llm-run.mjs [send|fill]
+ *
+ * Endpoint injection: `DSH_BASE` selects the instance to drive (default
+ * http://127.0.0.1:3190, the same variable `tests/lib/web-session.mjs` reads),
+ * so the external-dependency lane can point this script at an instance whose
+ * provider route is a local mock. Provider choice is NOT a parameter here: the
+ * assertions stay exactly as they are and must hold under whichever endpoint
+ * answers.
  */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
-const BASE = 'http://127.0.0.1:3190'
+const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
 const MODE = process.argv[2] === 'fill' ? 'fill' : 'send'
 // A per-run marker keeps a previous run's transcript from satisfying the
 // assertions (the same prompt text would otherwise match across runs).

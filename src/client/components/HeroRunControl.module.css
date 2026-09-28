@@ -11,16 +11,29 @@
   margin-left: 8px;
 }
 
+/* See RunCombo.module.css: at ≤640px the official hero row has no slack for a
+   fixed-width control, so let this one shrink (the name ellipsizes and the
+   official 标准模式 preset keeps its place) instead of overflowing the row. */
+@media (max-width: 640px) {
+  .control {
+    min-width: 0;
+  }
+}
+
+/* The add row lives inside the picker card's footerExtra block (see
+   SearchPickerMenu.module.css), so it fits that card's inner width instead of
+   squeezing the hero run row. */
 .addRow {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 8px;
+  width: 100%;
 }
 
 .pathInput {
   box-sizing: border-box;
-  width: 220px;
+  flex: 1;
+  min-width: 0;
   padding: 5px 10px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;

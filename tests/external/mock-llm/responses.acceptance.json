@@ -1,0 +1,17 @@
+[
+  {
+    "comment": "Session-title generation asks for a 64-token completion with thinking off; answer with a short canned title so the acceptance run does not depend on the prompt echo.",
+    "when": { "maxTokensAtMost": 64 },
+    "reply": { "text": "Mock 验收会话" }
+  },
+  {
+    "comment": "Compaction requests are marked by the harness header; keep them short.",
+    "when": { "purpose": "compaction" },
+    "reply": { "text": "（mock 摘要）" }
+  },
+  {
+    "comment": "Default rule: mirror the last user message. The LLM-run acceptance sends '请只回复：<mark>' and asserts the turn reached the transcript, so echoing the mark is the strongest possible evidence that the request really passed through this mock.",
+    "when": {},
+    "reply": { "echo": true }
+  }
+]

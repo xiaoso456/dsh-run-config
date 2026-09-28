@@ -4,9 +4,9 @@
  * tests/screenshots/combo-{static,tooltip}.png.
  */
 import { writeFileSync } from 'node:fs'
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl } from './lib/web-session.mjs'
 
-const CDP_HTTP = 'http://127.0.0.1:9222'
 const BASE = 'http://127.0.0.1:3190'
 
 async function closeAllTabs() {

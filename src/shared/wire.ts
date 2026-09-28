@@ -6,15 +6,7 @@
  * @module @xiaoso/dsh-run-config/shared/wire
  */
 
-/**
- * The Connection channel carrying our calls. `/api` is the ONLY carrier-owned
- * browser entry point (`rpc.handle` rejects it as reserved): exact Fetch routes
- * registered there are served by whichever physical carrier is present, and
- * that carrier applies its Host/Origin + browser-session policy before the
- * handler runs. Our own channels were dropped because a private channel prefix
- * can only be mounted by the Web carrier through `connection.rpc.handle`, which
- * no longer resolves the registering context's `webServer` on dsh 0.1.5.
- */
+/** The Connection channel carrying our calls: the one carrier-owned browser entry point. */
 export const TASK_RUNNER_CHANNEL = '/api'
 
 /** Endpoint namespace inside the shared channel (keeps our routes disjoint). */
@@ -29,6 +21,9 @@ export const TASK_RUNNER_ENDPOINTS = [
   'tasks/delete',
   'tasks/duplicate',
   'tasks/reorder',
+  // Generic-looking but COMMAND-ONLY: the handler rejects any other task type,
+  // and LLM configurations never call it (their run is the browser's standard
+  // send flow). Kept as-is rather than renamed so the wire stays stable.
   'tasks/run',
 ] as const
 

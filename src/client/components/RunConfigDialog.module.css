@@ -174,6 +174,22 @@ div.dialog {
   background: var(--dsw-alias-bg-layer-1);
 }
 
+/* Right-pane hint: the form edits the SELECTED row while the list follows the
+   search box, so the two can disagree. Neutral treatment (same surface as the
+   delete strip) — this is information, not an error. */
+.filterNotice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .confirmIcon {
   flex: none;
   display: inline-flex;
@@ -221,7 +237,6 @@ button.confirmDanger:hover:not(:disabled) {
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
-
 .groupLabel {
   display: flex;
   align-items: center;
@@ -382,6 +397,27 @@ button.confirmDanger:hover:not(:disabled) {
   padding: 14px;
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+/* This runtime draws OVERLAY scrollbars and cannot be told otherwise, so these
+   properties only tint the thumb that fades in while dragging. */
+.list,
+.right {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dsh-scrollbar-thumb) transparent;
+}
+
+/* No visible scrollbar at rest, so a 10px inset shadow marks the scrollable edge:
+   without it the half-clipped 「作用域」 control reads as "the form ends here". */
+.right {
+  --scroll-hint: color-mix(in oklab, var(--dsw-alias-label-primary) 22%, transparent);
+  background:
+    linear-gradient(var(--dsw-alias-bg-layer-2) 30%, transparent) top / 100% 16px no-repeat local,
+    linear-gradient(transparent, var(--dsw-alias-bg-layer-2) 70%) bottom / 100% 16px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, var(--scroll-hint), transparent) top / 100% 10px
+    no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--scroll-hint), transparent) bottom / 100% 10px
+    no-repeat scroll;
 }
 
 .form {
@@ -777,8 +813,14 @@ button.pickerTriggerOpen {
 /* ---------- narrow viewports ---------- */
 
 @media (max-width: 640px) {
-  div.dialog,
-  .modalContent {
+  /* Only the CARD's width is set here, and it stays the outer size: the card is
+     a flex item of the modal root, capped at the 24px padding box (366px at a
+     414px viewport). Also sizing `.modalContent` to `calc(100vw - 24px)` made
+     the content 24px WIDER than the card (390 vs 366), which pushed the
+     header's close button past the card's right edge (measured: button right
+     400 > card right 390) and clipped it, while the desktop gap is 14px. The
+     official `.content { width: 100% }` is the right owner of that size. */
+  div.dialog {
     width: calc(100vw - 24px);
   }
 

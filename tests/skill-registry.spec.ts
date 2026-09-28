@@ -1,5 +1,5 @@
 /**
- * The `run-configuration` skill against the REAL dsh 0.1.5 registry.
+ * The `run-configuration` skill against the REAL dsh 0.1.7 registry.
  *
  * This replaces the removed `tests/cdp-skill.mjs`: that script asserted the
  * skill name appeared in the page text, which stopped meaning anything when the

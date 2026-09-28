@@ -8,8 +8,8 @@
  *
  * Private channel prefixes (`connection.rpc.handle`) are gone on purpose: the
  * service mounts them on the *registering* context's `webServer`, which dsh
- * 0.1.5 no longer resolves (the Connection plugin dropped `webServer` from its
- * own inject, so the shadow context it hands back fails the inject guard).
+ * 0.1.5 no longer resolves — and 0.1.7 (this plugin's peer line) does not either,
+ * because the Connection plugin simply never injects `webServer` into it.
  * @module @xiaoso/dsh-run-config/rpc
  */
 
@@ -141,10 +141,8 @@ async function dispatch(
           name: input.name as string,
           type: input.type as 'llm' | 'command',
           scope: input.scope as 'global' | 'workspace',
-          // Every optional TaskCreateInput field must be forwarded here: this
-          // handler lists them by hand, and a forgotten one is dropped silently
-          // (autoSend + description were, which made a newly created LLM task
-          // always send immediately and lose its description).
+          // Every optional TaskCreateInput field is listed by hand here, and a
+          // forgotten one is dropped silently.
           ...(input.description !== undefined ? { description: input.description as string } : {}),
           ...(input.workspacePath !== undefined
             ? { workspacePath: input.workspacePath as string }
@@ -183,6 +181,8 @@ async function dispatch(
       return ok({})
     }
     case 'tasks/run': {
+      // COMMAND tasks only (see the endpoint comment in shared/wire.ts): an LLM
+      // configuration never reaches this route, its run happens in the browser.
       const input = requireObject(payload)
       const id = requireString(input, 'id', 'run requires a task id')
       const sessionId = requireString(input, 'sessionId', 'run requires sessionId')

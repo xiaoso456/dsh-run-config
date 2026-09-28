@@ -1,7 +1,7 @@
 /**
  * Task model + persistent store for dsh-run-config.
  *
- * Tasks live in a `task-runner` storage domain (KV table `tasks` plus a
+ * Tasks live in a `task_runner` storage domain (KV table `tasks` plus a
  * `global.taskOrder` array mirroring the workspace registry's
  * `global.workspaceIds` ordering scheme). The store is the single
  * authoritative CRUD surface shared by the RPC channel and the LLM tool.
@@ -120,16 +120,24 @@ export async function validateTaskInput(input: TaskCreateInput): Promise<TaskCre
     input.scope === 'workspace'
       ? await canonicalizeWorkspacePath(input.workspacePath as string)
       : undefined
+  // A field belongs to one scope or type only, and this is the single place that
+  // decides a record's shape (shared by create and update): dropping the fields
+  // the new scope/type does not own keeps a `global` record from carrying a
+  // `workspacePath` and a `command` record from carrying an `llmPrompt`.
   return {
     name,
     type: input.type,
     scope: input.scope,
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(workspacePath !== undefined ? { workspacePath } : {}),
-    ...(input.llmPrompt !== undefined ? { llmPrompt: input.llmPrompt } : {}),
-    ...(input.autoSend !== undefined ? { autoSend: input.autoSend } : {}),
-    ...(input.command !== undefined ? { command: input.command } : {}),
-    ...(input.notifyLlm !== undefined ? { notifyLlm: input.notifyLlm } : {}),
+    ...(input.type === 'llm' && input.llmPrompt !== undefined
+      ? { llmPrompt: input.llmPrompt }
+      : {}),
+    ...(input.type === 'llm' && input.autoSend !== undefined ? { autoSend: input.autoSend } : {}),
+    ...(input.type === 'command' && input.command !== undefined ? { command: input.command } : {}),
+    ...(input.type === 'command' && input.notifyLlm !== undefined
+      ? { notifyLlm: input.notifyLlm }
+      : {}),
   }
 }
 
@@ -234,8 +242,12 @@ export class TaskStore {
       notifyLlm: patch.notifyLlm !== undefined ? patch.notifyLlm : current.notifyLlm,
     }
     const normalized = await validateTaskInput(merged)
+    // `normalized` already holds the whole shape a record may have — the fields
+    // the new scope/type does not own are gone from it — so spreading `current`
+    // underneath would put exactly those dropped fields back.
     const record: TaskRecord = {
-      ...current,
+      id: current.id,
+      createdAt: current.createdAt,
       ...normalized,
       updatedAt: new Date().toISOString(),
     }

@@ -8,6 +8,8 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+// Type-only: the `ctx.skills` Context merge (official skill registry).
+import type {} from '@deepseek-ai/dsh-skill'
 
 /** Skill name (official `isSkillName`: lowercase letters/digits + hyphens). */
 export const RUN_CONFIGURATION_SKILL = 'run-configuration'
@@ -53,8 +55,12 @@ stored configurations.
 - description: optional note about what the configuration does
 - type: "llm" | "command"
 - scope: "workspace" (default) | "global"
-- workspacePath: canonical workspace directory path; required when scope=workspace
+- workspacePath: canonical workspace directory path; with scope=workspace it
+  defaults to the current session's workspace path (pass it explicitly when the
+  call has no session workspace)
 - llmPrompt: the prompt sent to the session; required for type=llm
+- autoSend: with type=llm, send the prompt immediately (default true); false
+  only fills the composer so the user can edit before sending
 - command: the bash command to run in the background; required for type=command
 - notifyLlm: whether the session LLM is notified when the background command
   finishes (default true)
@@ -72,25 +78,16 @@ stored configurations.
    action=list, query="hello" → find the matching configuration → tell the
    user it is ready to run from the web run-control.`
 
-/** The `ctx.skills` face this plugin needs (structural; dsh-skill is not a project dependency). */
-interface SkillsFace {
-  register(skill: {
-    name: string
-    description: string
-    whenToUse?: string
-    /** Source identifier required by the runtime skill path (e.g. "runtime"). */
-    source: string
-    content: string
-  }): () => void
-}
-
 /**
  * Register the `run-configuration` skill; returns the exact disposer.
+ * The argument is typed by the official `ctx.skills.register(skill:
+ * SkillRegistration)` from `@deepseek-ai/dsh-skill` (a hard peer alongside the
+ * other dsh services this plugin registers into), so a rename or a new
+ * required field breaks `tsc` instead of silently drifting.
  * @param ctx - host context with the `skills` service (dsh-base ships it).
  */
 export function registerRunConfigurationSkill(ctx: Context): () => void {
-  const skills = (ctx as unknown as { skills: SkillsFace }).skills
-  return skills.register({
+  return ctx.skills.register({
     name: RUN_CONFIGURATION_SKILL,
     description: DESCRIPTION,
     whenToUse: WHEN_TO_USE,

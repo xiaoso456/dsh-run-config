@@ -16,8 +16,12 @@ import css from './RunCombo.module.css'
 export interface RunComboProps {
   /** Task-type icon (llm think / command code); hidden while no task is selected. */
   icon?: ReactNode
-  /** Selected task name; undefined renders the placeholder. */
-  name?: string
+  /**
+   * Selected task name; undefined renders the placeholder. A node is accepted
+   * so a load state (loading spinner / failure warning) can stand in for the
+   * name in the same slot.
+   */
+  name?: ReactNode
   /** Placeholder text when no task is selected. */
   placeholder: string
   /** Picker-segment open state (active fill + chevron rotation). */
@@ -69,7 +73,7 @@ export function RunCombo({
           onClick={onPick}
         >
           {icon !== undefined ? <span className={css.icon}>{icon}</span> : null}
-          <span className={css.name} title={name}>
+          <span className={css.name} title={typeof name === 'string' ? name : undefined}>
             {name ?? placeholder}
           </span>
           <IconChevronDownOutlineMedium
@@ -77,7 +81,9 @@ export function RunCombo({
           />
         </button>
       </Tooltip>
-      <Tooltip label={runLabel} side="bottom" maxWidth={280} disabled={runTooltipDisabled}>
+      {/* 400px cap: the run label is `…「{name}」`, and a narrower cap split the
+          name itself in the middle (measured: 280px → two lines). */}
+      <Tooltip label={runLabel} side="bottom" maxWidth={400} disabled={runTooltipDisabled}>
         <button
           type="button"
           className={css.run}

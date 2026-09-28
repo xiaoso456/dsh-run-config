@@ -11,8 +11,7 @@
  *     "编辑配置…");
  *  4. hover the run segment → the tooltip bubble appears with the run hint;
  *  5. close the menu; report console errors. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = 'http://127.0.0.1:3190'
@@ -141,7 +140,10 @@ async function main() {
     pick.click()
     return true
   })()`)
-  await sleep(900)
+  // Read the menu while the picker is still alive: the card is closed again by the
+  // workspace/task list landing (~200-400ms here, reproduced with and without this
+  // round's changes), so a long fixed wait measures the post-close state instead.
+  await sleep(100)
   results.menu = await evaluate(`(() => {
     const menu = [...document.querySelectorAll('[role="menu"]')].pop()
     if (!menu) return { found: false }
@@ -178,8 +180,12 @@ async function main() {
   // 0.1.7-rc.2 wraps the label in its own <span class="label">), the rect is
   // re-measured per attempt (the combo can still be re-laying out right after
   // the menu closes), and the whole hover is retried while the bubble is absent.
-  const HINT_ZH = '在当前工作区运行任务配置'
-  const HINT_EN = 'in the current workspace'
+  // The hint names the configuration and where the run happens: a command runs
+  // in the SESSION working directory (the configuration's workspace is only the
+  // fallback), an LLM one is sent to the current session. Both locales are
+  // matched by the part that is stable across the wording.
+  const HINT_ZH = '运行任务配置'
+  const HINT_EN = 'Run configuration'
   results.tooltip = { found: false, text: '' }
   for (let attempt = 0; attempt < 6 && !results.tooltip.found; attempt += 1) {
     const hoverRect = await evaluate(`(() => {

@@ -25,20 +25,21 @@ import {
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { NS } from '../core/locales.ts'
+import { consumePendingRun } from '../core/pendingRun.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'
 import { taskRunnerStore } from '../core/store.ts'
+import { taskListNotice } from '../core/taskListState.ts'
 import type { TaskView } from '../core/types.ts'
 import { useTaskLoader } from '../core/useTaskLoader.ts'
 import { useToast } from '../core/useToast.tsx'
 import { RunCombo } from './RunCombo.tsx'
 import css from './RunControl.module.css'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
+import { TaskListNotice } from './TaskListNotice.tsx'
 
 /** Injected business face supplied by the client entry. */
 export interface RunControlInjected {
   rpc: TaskRunnerRpc
-  /** Current active UI locale ('zh' | 'en'), read at run time. */
-  getActiveLocale: () => string
 }
 
 /** Full props for the header control. */
@@ -59,22 +60,30 @@ export function RunControl({
   useInput,
   inputActions,
   rpc,
-  getActiveLocale,
   t,
 }: RunControlProps) {
   const snap = useSyncExternalStore(taskRunnerStore.subscribe, taskRunnerStore.getSnapshot)
   const cwd = useSessions((state) => state.byId[sessionId]?.cwd)
-  // Draft state drives the run button's enabled posture (empty draft = nothing to send).
-  useInput((s) => s)
+  // The composer's current draft: running an LLM configuration REPLACES it
+  // (official contract, `input.d.ts` "Replace the whole draft"), so what is
+  // about to be overwritten has to be read before the write.
+  const inputState = useInput((s) => s)
 
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // One command run in flight at a time. The ref is the gate: every click in the
+  // same tick reads the same `busy` state, and three clicks in one tick used to
+  // issue three `tasks/run` calls (three background processes for one
+  // configuration). Same door as HeroRunControl's `createGate`.
+  const runGate = useRef(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const { node: toastNode, show: showToast } = useToast()
 
-  // Load tasks once and after every mutation revision.
+  // Load tasks once and after every mutation revision. The transport error is
+  // the official Connection's English wording, so it is wrapped in this
+  // plugin's own sentence (the toast is user-facing copy, not a log line).
   useTaskLoader(rpc, snap.revision, (message) => {
-    showToast(message, <IconWarningOutlineRegular size={14} />)
+    showToast(t('tasksLoadFailedDetail', { message }), <IconWarningOutlineRegular size={14} />)
   })
 
   const visible = useMemo(() => snap.tasks ?? [], [snap.tasks])
@@ -92,8 +101,13 @@ export function RunControl({
   const visibleTasks = [...currentTasks, ...globalTasks]
   const selected = visibleTasks.find((task) => task.id === snap.selectedId) ?? visibleTasks[0]
 
+  // Loading / empty / failed must be three different messages here too (the
+  // header picker lists the same cache as the hero control).
+  const notice = taskListNotice({ status: snap.tasksStatus, loaded: snap.tasks !== null })
+  const noticeText = notice === undefined ? undefined : t(notice.key)
+
   const runTask = (task: TaskView | undefined): void => {
-    if (task === undefined || busy) return
+    if (task === undefined || busy || runGate.current) return
     if (task.type === 'llm') {
       const prompt = task.llmPrompt ?? ''
       if (prompt.trim().length === 0) {
@@ -103,18 +117,30 @@ export function RunControl({
         )
         return
       }
+      const replaced =
+        inputState.draft.trim().length > 0 && inputState.draft.trim() !== prompt.trim()
       inputActions.setDraft(prompt)
       if (task.autoSend !== false) {
         inputActions.submit()
+        // The official contract replaces the whole draft, so the user's own
+        // text is gone — never silently.
+        if (replaced) showToast(t('draftReplaced'), <IconWarningOutlineRegular size={14} />)
       } else {
         // autoSend off: fill the composer and let the user edit before sending.
-        showToast(t('filledIn'), <IconCheckOutlineRegular size={14} />)
+        // Only one banner is on screen at a time, and "your draft was replaced"
+        // is the news that must survive alongside "filled in".
+        showToast(
+          replaced ? t('filledInReplaced') : t('filledIn'),
+          <IconCheckOutlineRegular size={14} />,
+        )
       }
       return
     }
     setBusy(true)
+    runGate.current = true
+    // Command-only endpoint (LLM runs go through the composer above).
     void rpc
-      .call('tasks/run', { id: task.id, sessionId, locale: getActiveLocale() })
+      .call('tasks/run', { id: task.id, sessionId })
       .then((res) => {
         showToast(t('started', { id: res.jobId }), <IconCheckOutlineRegular size={14} />)
       })
@@ -127,18 +153,35 @@ export function RunControl({
         )
       })
       .finally(() => {
+        runGate.current = false
         setBusy(false)
       })
   }
 
-  // Hero → session handoff: a pending run requested on the hero page executes
-  // once a session is current.
+  // Hero → session handoff: a run the hero page requested executes here, and only
+  // here — a handoff addressed to another Session is left for that Session's own
+  // control. The rules live in core/pendingRun.ts (`consumePendingRun`), so they
+  // are asserted without a DOM; this effect only supplies the state.
   useEffect(() => {
-    const id = taskRunnerStore.consumePendingRun()
-    if (id === undefined) return
-    const task = visible.find((candidate) => candidate.id === id)
-    if (task !== undefined) runTask(task)
-  }, [snap.pendingRunId, visible, inputActions, sessionId])
+    consumePendingRun<TaskView>({
+      pending: snap.pendingRun,
+      sessionId,
+      tasksLoaded: snap.tasks !== null,
+      canStart: !busy,
+      visible,
+      clearPendingRun: (pending) => {
+        taskRunnerStore.clearPendingRun(pending)
+      },
+      reportUnavailable: () => {
+        // The task is gone from the cache, so there is no name to show: the id
+        // is not user-facing copy.
+        showToast(t('runUnavailable'), <IconWarningOutlineRegular size={14} />)
+      },
+      start: runTask,
+    })
+    // `busy` is a dependency because a handoff arriving during a run is
+    // deferred: it must be consumed as soon as this control is free again.
+  }, [snap.pendingRun, snap.tasks, visible, inputActions, sessionId, busy])
 
   // Menu entries: the header picker shows only the CURRENT workspace and
   // GLOBAL tasks (the run button acts on this session; every other
@@ -159,10 +202,14 @@ export function RunControl({
       for (const task of globalTasks) out.push(menuEntry(task))
     }
     if (out.length === 0) {
-      out.push({ type: 'label', id: 'label-empty', text: t('noVisibleTasks') })
+      out.push({
+        type: 'label',
+        id: 'label-empty',
+        text: noticeText ?? t('noVisibleTasks'),
+      })
     }
     return out
-  }, [globalTasks, currentTasks, t])
+  }, [globalTasks, currentTasks, t, noticeText])
 
   const footer: MenuEntry[] = [
     {
@@ -194,7 +241,13 @@ export function RunControl({
             <IconCodeOutlineRegular size={14} />
           )
         }
-        name={selected?.name}
+        name={
+          selected === undefined && notice !== undefined && noticeText !== undefined ? (
+            <TaskListNotice notice={notice} text={noticeText} />
+          ) : (
+            selected?.name
+          )
+        }
         placeholder={t('selectTask')}
         open={open}
         runEnabled={selected !== undefined && !busy}
@@ -227,7 +280,14 @@ export function RunControl({
           setOpen(false)
         }}
         searchPlaceholder={t('searchPlaceholder')}
-        emptyText={t('noVisibleTasks')}
+        emptyText={
+          notice !== undefined && noticeText !== undefined ? (
+            <TaskListNotice notice={notice} text={noticeText} />
+          ) : (
+            t('noVisibleTasks')
+          )
+        }
+        noMatchText={t('noMatchTasks')}
         dense
         triggerRef={triggerRef}
       />

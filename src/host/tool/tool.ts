@@ -10,7 +10,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type { TaskPatch, TaskScope, TaskStore, TaskType } from '../tasks.ts'
 
 /** One task-management action. */
@@ -29,9 +29,9 @@ export interface TaskRunnerToolArgs {
   description?: string
   /** create/update: 'llm' | 'command'. */
   type?: TaskType
-  /** create/update: 'global' | 'workspace'. */
+  /** create/update: 'global' | 'workspace' (create defaults to 'workspace'). */
   scope?: TaskScope
-  /** create/update (scope=workspace): canonical workspace path. */
+  /** create/update (scope=workspace): canonical workspace path (create defaults to the session workspace). */
   workspacePath?: string
   /** create/update (type=llm): the prompt sent to the LLM on run. */
   llmPrompt?: string
@@ -68,6 +68,20 @@ export const TASK_JSON_SCHEMA = {
     updatedAt: { type: 'string', required: true },
   },
 } as const
+
+/**
+ * The calling session's workspace directory, or undefined when the call has no
+ * session (or the session has no working directory). This is the same source
+ * the browser RPC uses for command tasks (`agent.session.header.cwd` — the
+ * official session cwd, which is also what the client compares a
+ * workspace-scoped configuration's `workspacePath` against).
+ * @param exec - the registry execution context (absent in direct body tests).
+ * @returns the canonical session workspace path, or undefined.
+ */
+function sessionWorkspacePath(exec: ToolRunContext | undefined): string | undefined {
+  const cwd = exec?.agent?.session.header.cwd
+  return cwd === undefined || cwd.trim().length === 0 ? undefined : cwd
+}
 
 /** Register the task-management tool; returns the exact disposer. */
 export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => void {
@@ -155,7 +169,7 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
         },
         render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }],
       },
-      async execute(args: TaskRunnerToolArgs) {
+      async execute(args: TaskRunnerToolArgs, exec: ToolRunContext) {
         // Approval is NOT the tool's concern: the `tools/pre-execute` gate
         // in `./approval.ts` decides allow/ask per the session's sandbox
         // mode, and the ToolRuntime resolves `ask` through the standard
@@ -171,12 +185,30 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
         }
         switch (args.action) {
           case 'create': {
+            // The model-visible contract (this tool's description, the scope
+            // parameter, and the run-configuration skill's Defaults) promises
+            // `workspace` with the current session's workspace path, so an
+            // unqualified "save this as a run configuration" never leaks a
+            // configuration into every workspace.
+            const scope: TaskScope = args.scope ?? 'workspace'
+            const workspacePath =
+              args.workspacePath ?? (scope === 'workspace' ? sessionWorkspacePath(exec) : undefined)
+            if (scope === 'workspace' && workspacePath === undefined) {
+              // Fail closed: with no session workspace there is NO safe
+              // default, and silently falling back to 'global' is exactly the
+              // cross-workspace side effect the documented contract rules out.
+              throw new Error(
+                'creating a workspace-scoped configuration needs a workspace directory, and ' +
+                  'this call has no session workspace: pass workspacePath explicitly, or ' +
+                  'scope=global when the user asked for a configuration in every workspace',
+              )
+            }
             const task = await store.create({
               name: args.name ?? '',
               type: args.type ?? 'llm',
-              scope: args.scope ?? 'global',
+              scope,
               ...(args.description !== undefined ? { description: args.description } : {}),
-              ...(args.workspacePath !== undefined ? { workspacePath: args.workspacePath } : {}),
+              ...(workspacePath !== undefined ? { workspacePath } : {}),
               ...(args.llmPrompt !== undefined ? { llmPrompt: args.llmPrompt } : {}),
               ...(args.autoSend !== undefined ? { autoSend: args.autoSend } : {}),
               ...(args.command !== undefined ? { command: args.command } : {}),

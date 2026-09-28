@@ -2,9 +2,9 @@
  * The run-config dialog (IDEA Run/Debug Configurations style), registered
  * into `shell.overlay`. Left pane: searchable, grouped task list with
  * add / duplicate / delete (with confirmation) and drag reordering. Right
- * pane: the selected task's form. Footer: OK / Cancel / Apply, plus the
- * "expose the task tool to the LLM" switch bound to the `task-runner`
- * settings namespace.
+ * pane: the selected task's form. Footer: Cancel + Save (Save is disabled while
+ * the form is unchanged), plus the "expose the task tool to the LLM" switch
+ * bound to the `task-runner` settings namespace.
  *
  * Visual language: host design tokens only, precision-tool density. See
  * RunConfigDialog.module.css for the shape / motion / height rules.
@@ -31,12 +31,17 @@ import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DragEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { nextCreateInput } from '../core/createInput.ts'
+import { draftSignature, sameAsTask, type TaskDraft, toDraft } from '../core/draft.ts'
+import { firstVisibleTaskId } from '../core/firstVisibleTask.ts'
 import type { NS } from '../core/locales.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'
 import { taskRunnerStore } from '../core/store.ts'
+import { emptyListReason, taskListNotice } from '../core/taskListState.ts'
 import type { TaskScope, TaskType, TaskView } from '../core/types.ts'
 import css from './RunConfigDialog.module.css'
 import { type MenuEntry, SearchPickerMenu } from './SearchPickerMenu.tsx'
+import { TaskListNotice } from './TaskListNotice.tsx'
 
 /** Settings shape the dialog's switch writes. */
 export interface TaskRunnerDialogSettings {
@@ -53,47 +58,6 @@ export interface RunConfigDialogInjected {
 export type RunConfigDialogProps = PropsRuntime<'shell.overlay'> &
   PropsLocale<typeof NS> &
   RunConfigDialogInjected
-
-/** Editable form fields for one task. */
-interface Draft {
-  name: string
-  description: string
-  type: TaskType
-  scope: TaskScope
-  workspacePath: string
-  llmPrompt: string
-  autoSend: boolean
-  command: string
-  notifyLlm: boolean
-}
-
-function toDraft(task: TaskView): Draft {
-  return {
-    name: task.name,
-    description: task.description ?? '',
-    type: task.type,
-    scope: task.scope,
-    workspacePath: task.workspacePath ?? '',
-    llmPrompt: task.llmPrompt ?? '',
-    autoSend: task.autoSend ?? true,
-    command: task.command ?? '',
-    notifyLlm: task.notifyLlm ?? true,
-  }
-}
-
-function sameAsTask(draft: Draft, task: TaskView): boolean {
-  return (
-    draft.name === task.name &&
-    (draft.description || undefined) === task.description &&
-    draft.type === task.type &&
-    draft.scope === task.scope &&
-    (draft.workspacePath || undefined) === task.workspacePath &&
-    (draft.llmPrompt || undefined) === task.llmPrompt &&
-    draft.autoSend === (task.autoSend ?? true) &&
-    (draft.command || undefined) === task.command &&
-    draft.notifyLlm === (task.notifyLlm ?? true)
-  )
-}
 
 /**
  * The run-config dialog.
@@ -119,13 +83,15 @@ export function RunConfigDialog({
   const workspaces = useWorkspaces((state) => state.items)
 
   const [query, setQuery] = useState('')
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [draft, setDraft] = useState<TaskDraft | null>(null)
   const [saveError, setSaveError] = useState<string | undefined>(undefined)
-  const [saved, setSaved] = useState(false)
+  const [savedSeq, setSavedSeq] = useState(0)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [writeBusy, setWriteBusy] = useState(false)
   const workspaceTriggerRef = useRef<HTMLButtonElement>(null)
+  const writeGate = useRef(false)
 
   // Keep the settings switch live (the form snapshot is identity-stable;
   // arrow wrappers keep the class methods' `this` binding).
@@ -137,28 +103,44 @@ export function RunConfigDialog({
   const tasks = snap.tasks ?? []
   const selected = tasks.find((task) => task.id === snap.selectedId)
 
-  // Reset the form whenever the selection (or a committed revision) changes.
+  // What the form is rebuilt on: the selected task's stored VALUE, not the store
+  // revision (a reorder bumps the revision and replaces the task array, and
+  // rebuilding then threw the user's unsaved edits away).
+  const selectedSignature = selected === undefined ? undefined : draftSignature(selected)
+
+  // Loading / empty / failed are three different messages here as well.
+  const notice = taskListNotice({ status: snap.tasksStatus, loaded: snap.tasks !== null })
+  const noticeText = notice === undefined ? undefined : t(notice.key)
+
+  // Rebuild the form when the dialog opens, when the selection changes, and when
+  // the value it shows changes — never on every reload.
   useEffect(() => {
-    const task = tasks.find((candidate) => candidate.id === snap.selectedId)
+    // Opening is what re-syncs: "Cancel" closes the dialog without saving, so
+    // the next open must show the stored value again.
+    if (!snap.dialogOpen) return
+    const task = (snap.tasks ?? []).find((candidate) => candidate.id === snap.selectedId)
     setDraft(task === undefined ? null : toDraft(task))
     setConfirmDelete(false)
     setSaveError(undefined)
-  }, [snap.selectedId, snap.revision, tasks])
+  }, [snap.dialogOpen, snap.selectedId, selectedSignature])
 
-  // The "saved" hint clears on selection change and by its own timer.
+  // The "saved" hint clears on selection change and by its own timer. It carries
+  // a counter rather than a boolean because a boolean set to `true` again does
+  // not change: the second save would not restart the timer, and the hint would
+  // disappear on the first save's clock instead of its own.
   useEffect(() => {
-    setSaved(false)
+    setSavedSeq(0)
   }, [snap.selectedId])
 
   useEffect(() => {
-    if (!saved) return
+    if (savedSeq === 0) return
     const timer = setTimeout(() => {
-      setSaved(false)
+      setSavedSeq(0)
     }, 2_000)
     return () => {
       clearTimeout(timer)
     }
-  }, [saved])
+  }, [savedSeq])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -172,6 +154,11 @@ export function RunConfigDialog({
         (task.description ?? '').toLowerCase().includes(needle),
     )
   }, [tasks, query])
+
+  // A search that matched nothing is NOT an empty library: "no configurations
+  // yet / click + to create one" told a searching user the opposite of what
+  // happened.
+  const emptyReason = emptyListReason({ total: tasks.length, shown: filtered.length })
 
   const globalTasks = filtered.filter((task) => task.scope === 'global')
   const currentTasks = filtered.filter(
@@ -190,6 +177,14 @@ export function RunConfigDialog({
     }
     return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [filtered, currentCwd])
+
+  // The group a row renders in: the same three groups the list is rendered with
+  // (global → the current workspace → one group per other workspace).
+  const groupOf = (task: TaskView): string => {
+    if (task.scope === 'global') return 'global'
+    if (task.workspacePath === currentCwd) return 'workspace'
+    return `other:${task.workspacePath ?? ''}`
+  }
 
   // Group title for a workspace path: the workspace title when resolvable,
   // otherwise the path's basename (tasks may reference removed workspaces).
@@ -215,37 +210,89 @@ export function RunConfigDialog({
     taskRunnerStore.setSelected(id)
   }
 
+  // One write in flight at a time. The ref is the gate (clicks inside one React
+  // batch read the same `writeBusy` state); the state only renders the buttons
+  // disabled.
+  const beginWrite = (): boolean => {
+    if (writeGate.current) return false
+    writeGate.current = true
+    setWriteBusy(true)
+    return true
+  }
+
+  const endWrite = (): void => {
+    writeGate.current = false
+    setWriteBusy(false)
+  }
+
+  // The first row of the list as rendered (`core/firstVisibleTask.ts`), so the
+  // dialog can open on a configuration instead of an empty right pane.
+  const firstVisibleId = firstVisibleTaskId({
+    global: globalTasks,
+    current: currentTasks,
+    others: otherGroups,
+  })
+
+  // Open with a row selected; an explicit selection that still exists is always
+  // kept (the header's "edit this configuration" flow must not jump elsewhere).
+  useEffect(() => {
+    if (!snap.dialogOpen) return
+    if (firstVisibleId === undefined) return
+    if (snap.selectedId !== undefined && tasks.some((task) => task.id === snap.selectedId)) return
+    select(firstVisibleId)
+  }, [snap.dialogOpen, snap.selectedId, tasks, firstVisibleId])
+
+  // "New" creates a configuration of the CURRENT workspace — the same default
+  // the `task_run_config` tool applies when the model omits `scope`. The
+  // derivation lives in `core/createInput.ts` so it can be asserted without a
+  // DOM; this handler only performs the side effects.
   const createTask = (): void => {
+    const decision = nextCreateInput({ currentCwd, workspaces })
+    if (decision.kind === 'refuse') {
+      setSaveError(t('saveFailed', { message: 'no workspace available' }))
+      return
+    }
+    if (!beginWrite()) return
     void rpc
       .call('tasks/create', {
         name: t('newTaskName'),
         type: 'llm',
-        scope: 'global',
+        scope: decision.input.scope,
+        workspacePath: decision.input.workspacePath,
       })
       .then((res) => {
-        refresh()
+        // Upsert before selecting: the "keep an explicit selection" effect below
+        // can only keep an id the cache already shows.
+        taskRunnerStore.upsertTask(res.task)
         select(res.task.id)
+        refresh()
       })
       .catch((error) => {
         setSaveError(String(error instanceof Error ? error.message : error))
       })
+      .finally(endWrite)
   }
 
   const duplicateTask = (): void => {
     if (selected === undefined) return
+    if (!beginWrite()) return
     void rpc
       .call('tasks/duplicate', { id: selected.id })
       .then((res) => {
-        refresh()
+        // Same rule as `createTask`: the duplicate must be selectable at once.
+        taskRunnerStore.upsertTask(res.task)
         select(res.task.id)
+        refresh()
       })
       .catch((error) => {
         setSaveError(String(error instanceof Error ? error.message : error))
       })
+      .finally(endWrite)
   }
 
   const deleteTask = (): void => {
     if (selected === undefined) return
+    if (!beginWrite()) return
     void rpc
       .call('tasks/delete', { id: selected.id })
       .then(() => {
@@ -257,13 +304,18 @@ export function RunConfigDialog({
       .catch((error) => {
         setSaveError(String(error instanceof Error ? error.message : error))
       })
+      .finally(endWrite)
   }
 
   const applyDraft = (): void => {
     if (draft === null || selected === undefined) return
+    if (!beginWrite()) return
     const patch: Record<string, unknown> = {
       name: draft.name,
-      description: draft.description || undefined,
+      // Forwarded as-is: the Host reads `undefined` as "keep the current value",
+      // so folding `''` into `undefined` here made the field impossible to clear
+      // (the same reason `llmPrompt` / `command` are sent verbatim).
+      description: draft.description,
       type: draft.type,
       scope: draft.scope,
     }
@@ -278,21 +330,29 @@ export function RunConfigDialog({
     }
     void rpc
       .call('tasks/update', { id: selected.id, patch })
-      .then(() => {
+      .then((res) => {
+        // The response is the committed record: caching it is what turns the
+        // form clean (`sameAsTask`) without waiting for the reload.
+        taskRunnerStore.upsertTask(res.task)
         refresh()
         setSaveError(undefined)
-        setSaved(true)
+        setSavedSeq((seq) => seq + 1)
       })
       .catch((error) => {
         setSaveError(String(error instanceof Error ? error.message : error))
       })
+      .finally(endWrite)
   }
 
-  const patchDraft = (patch: Partial<Draft>): void => {
+  const patchDraft = (patch: Partial<TaskDraft>): void => {
     setDraft((current) => (current === null ? current : { ...current, ...patch }))
   }
 
   const onScopeChange = (scope: TaskScope): void => {
+    // Switching away from `workspace` unmounts the picker subtree, so its open
+    // state has to end with it: otherwise switching back re-mounts the card with
+    // `open={true}` and a dropdown the user never asked for appears.
+    setWorkspaceOpen(false)
     patchDraft({
       scope,
       ...(scope === 'workspace' && (draft?.workspacePath ?? '') === ''
@@ -304,6 +364,16 @@ export function RunConfigDialog({
   const onDrop = (event: DragEvent, targetId: string): void => {
     event.preventDefault()
     if (dragId === null || dragId === targetId) return
+    const dragged = tasks.find((task) => task.id === dragId)
+    const target = tasks.find((task) => task.id === targetId)
+    // The list is GROUPED (global, then the current workspace, then every other
+    // workspace) and the group order follows from scope/workspacePath, so only
+    // the order inside a group is free. A drop across groups has no position to
+    // express, and the index of a row in `tasks` is not the index of that row on
+    // screen: computing the move anyway wrote a permutation the rendering
+    // ignored — the dragged row stayed put while the stored order changed.
+    if (dragged === undefined || target === undefined || groupOf(dragged) !== groupOf(target))
+      return
     const ids = tasks.map((task) => task.id)
     const from = ids.indexOf(dragId)
     const to = ids.indexOf(targetId)
@@ -337,6 +407,9 @@ export function RunConfigDialog({
 
   const dirty = draft !== null && selected !== undefined && !sameAsTask(draft, selected)
 
+  // The right pane follows the SELECTION, the left pane follows the SEARCH:
+  // the two can disagree, and the user must be able to tell.
+  const selectedHidden = selected !== undefined && !filtered.some((task) => task.id === selected.id)
   // Workspace picker rows for the scope === 'workspace' field (searchable).
   const workspaceItems: MenuEntry[] = useMemo(
     () =>
@@ -363,7 +436,7 @@ export function RunConfigDialog({
               <IconWarningOutlineRegular size={14} />
               <span className={css.footerErrorText}>{saveError}</span>
             </span>
-          ) : saved ? (
+          ) : savedSeq !== 0 ? (
             <span className={css.footerSaved} role="status">
               <IconCheckOutlineRegular size={14} />
               <span>{t('savedText')}</span>
@@ -373,7 +446,7 @@ export function RunConfigDialog({
           <Button variant="outline" size="sm" onClick={close}>
             {t('btnCancel')}
           </Button>
-          <Button variant="primary" size="sm" disabled={!dirty} onClick={applyDraft}>
+          <Button variant="primary" size="sm" disabled={!dirty || writeBusy} onClick={applyDraft}>
             {t('btnSave')}
           </Button>
         </div>
@@ -387,6 +460,7 @@ export function RunConfigDialog({
               className={css.toolButton}
               title={t('btnAdd')}
               aria-label={t('btnAdd')}
+              disabled={writeBusy}
               onClick={createTask}
             >
               <IconPlusOutlineRegular size={14} />
@@ -396,7 +470,7 @@ export function RunConfigDialog({
               className={css.toolButton}
               title={t('btnDuplicate')}
               aria-label={t('btnDuplicate')}
-              disabled={selected === undefined}
+              disabled={selected === undefined || writeBusy}
               onClick={duplicateTask}
             >
               <IconCopyOutlineRegular size={14} />
@@ -406,7 +480,7 @@ export function RunConfigDialog({
               className={`${css.toolButton} ${css.toolButtonDanger}`}
               title={t('btnDelete')}
               aria-label={t('btnDelete')}
-              disabled={selected === undefined}
+              disabled={selected === undefined || writeBusy}
               onClick={() => {
                 setConfirmDelete((current) => !current)
               }}
@@ -438,6 +512,7 @@ export function RunConfigDialog({
                   variant="outline"
                   size="sm"
                   className={css.confirmDanger}
+                  disabled={writeBusy}
                   onClick={deleteTask}
                 >
                   {t('deleteConfirmYes')}
@@ -457,11 +532,26 @@ export function RunConfigDialog({
           <div className={css.list}>
             {filtered.length === 0 ? (
               <div className={css.empty}>
-                <span className={css.emptyIcon}>
-                  <IconChecklistOutlineMedium size={18} />
-                </span>
-                <span>{t('emptyList')}</span>
-                <span>{t('emptyListHint')}</span>
+                {/* Filtered-out first: the load notice is about the LIST, the
+                    search is about the view. */}
+                {emptyReason === 'filtered' ? (
+                  <>
+                    <span className={css.emptyIcon}>
+                      <IconChecklistOutlineMedium size={18} />
+                    </span>
+                    <span>{t('noMatchTasks')}</span>
+                  </>
+                ) : notice !== undefined && noticeText !== undefined ? (
+                  <TaskListNotice notice={notice} text={noticeText} />
+                ) : (
+                  <>
+                    <span className={css.emptyIcon}>
+                      <IconChecklistOutlineMedium size={18} />
+                    </span>
+                    <span>{t('emptyList')}</span>
+                    <span>{t('emptyListHint')}</span>
+                  </>
+                )}
               </div>
             ) : (
               <>
@@ -501,13 +591,28 @@ export function RunConfigDialog({
         <div className={css.right}>
           {draft === null || selected === undefined ? (
             <div className={css.empty}>
-              <span className={css.emptyIcon}>
-                <IconChecklistOutlineMedium size={18} />
-              </span>
-              <span>{t('emptyList')}</span>
+              {notice !== undefined && noticeText !== undefined ? (
+                <TaskListNotice notice={notice} text={noticeText} />
+              ) : (
+                <>
+                  <span className={css.emptyIcon}>
+                    <IconChecklistOutlineMedium size={18} />
+                  </span>
+                  <span>{t('emptyList')}</span>
+                </>
+              )}
             </div>
           ) : (
             <div className={css.form}>
+              {selectedHidden ? (
+                // The form edits `snap.selectedId`, which the search box can
+                // filter out of the list: without this line the right pane shows
+                // (and saves onto) a row the user cannot see.
+                <div className={css.filterNotice} role="status">
+                  <IconWarningOutlineRegular size={14} />
+                  <span>{t('editingOutsideFilter')}</span>
+                </div>
+              ) : null}
               <label className={css.field}>
                 <span className={css.fieldLabel}>{t('fieldName')}</span>
                 <input

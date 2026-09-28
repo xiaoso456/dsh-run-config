@@ -13,7 +13,6 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_TASK_RUNNER_SETTINGS,
   installTaskRunnerSwitch,
   TASK_RUNNER_SETTINGS_NS,
   type TaskRunnerSettings,
@@ -106,7 +105,9 @@ describe('task_run_config tool switch', () => {
 
     installTaskRunnerSwitch(ctx, liveConfig(true).config, makeSync(ctx, store))
 
+    // The "ships on" default is the `Config` schema's `.default(true)` on the
+    // volatile field (src/host/settings.ts); there is no literal defaults
+    // object in the host body, so nothing else needs asserting here.
     expect(ctx.tools.get('task_run_config')).toBeDefined()
-    expect(DEFAULT_TASK_RUNNER_SETTINGS.toolEnabled).toBe(true)
   })
 })

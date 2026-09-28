@@ -6,8 +6,7 @@
  *      to the store while the page sits open);
  *   3. click the hero trigger (opens the run-config dialog, which bumps);
  *   4. assert the dialog lists the freshly created task. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = 'http://127.0.0.1:3190'

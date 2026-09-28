@@ -7,12 +7,20 @@
  *  1. load the page, enter a session via the sidebar;
  *  2. create the pwsh-syntax command task via RPC;
  *  3. pick it in the header RunCombo and click run;
- *  4. wait for the completion notice ("已完成") in the session. */
-const CDP_HTTP = 'http://127.0.0.1:9222'
-
+ *  4. wait for the pwsh-probe.txt file the command writes (see PROBE_FILE
+ *     below: the file's existence is what this script asserts — the session
+ *     completion notice is NOT waited on, because it is unreliable here).
+ *
+ * Endpoint injection: `DSH_BASE` selects the instance to drive (default
+ * http://127.0.0.1:3190, the same variable `tests/lib/web-session.mjs` reads),
+ * so the external-dependency lane can point this script at an instance whose
+ * provider route is a local mock. Provider choice is NOT a parameter here: the
+ * assertions stay exactly as they are and must hold under whichever endpoint
+ * answers. */
+import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
-const BASE = 'http://127.0.0.1:3190'
+const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
 const TASK_NAME = `pwsh验证-${Date.now().toString(36)}`
 
 async function closeAllTabs() {
@@ -192,8 +200,14 @@ async function main() {
   // Wait for the probe file to appear in the session workspace (the command
   // runs with cwd = the session's workspace path).
   const { existsSync, readFileSync, rmSync } = await import('node:fs')
-  const { join } = await import('node:path')
-  const probePath = join('D:/code/pi-gateway-project/dsh-plugin/dsh-task-runner', PROBE_FILE)
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  // The probe command has `scope: 'global'` (no workspacePath), so it runs with
+  // cwd = the session workspace, which the acceptance lane pins to this
+  // repository root. Derive that root from this file's own location instead of
+  // one machine's absolute path, so the script stays runnable from any checkout.
+  const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
+  const probePath = join(REPO_ROOT, PROBE_FILE)
   let fileFound = false
   let fileContent = ''
   for (let i = 0; i < 30; i++) {

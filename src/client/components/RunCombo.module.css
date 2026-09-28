@@ -98,6 +98,31 @@
   cursor: default;
 }
 
+/* Narrow viewports: our host row (the official hero workspace row — a nowrap
+   flex line with a ~106px official preset after us) cannot seat a fixed 190px
+   pill. The pill's `min-width: auto` resolved to its max-content size, so the
+   flex line refused to shrink us and silently clipped the preset out of the
+   viewport (measured at 414px: row clientWidth 351 / scrollWidth 393, and the
+   official 标准模式 control ending at x=449). Allowing the pill to shrink lets
+   the task name ellipsize instead, handing the slack back to the preset. */
+@media (max-width: 640px) {
+  .combo {
+    min-width: 0;
+  }
+
+  .pick {
+    max-width: 100%;
+  }
+
+  /* Below a character-and-a-half the name stops being a name ("拉…"): keep a
+     floor so the ellipsis still identifies the configuration. The row still has
+     the slack for it (measured 360/414/480/640px: no preset clipping, no row
+     overflow), it just comes out of the name's own max-content share. */
+  .name {
+    min-width: 56px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pick,
   .chevron,

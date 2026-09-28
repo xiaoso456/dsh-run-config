@@ -19,7 +19,8 @@ import type { TaskRecord } from '../src/host/tasks.ts'
 
 /**
  * Minimal Inbox double. Since dsh 0.1.5 `Inbox` is an interface — its concrete
- * storage belongs to the agent driver — so a test agent supplies its own. The
+ * storage belongs to the agent driver — so a test agent supplies its own (still
+ * an interface on 0.1.7, the peer line this repo targets). The
  * command runner never touches the inbox; it only notifies through the agent.
  */
 function stubInbox(): Inbox {
@@ -35,8 +36,13 @@ function stubInbox(): Inbox {
   }
 }
 
-/** A minimal live agent with spied notification sinks. */
-function stubAgent(ctx: Context, rawId: string): Agent {
+/**
+ * A minimal live agent with spied notification sinks.
+ * @param ctx - the plugin context (for the agent's scope fiber).
+ * @param rawId - the session id this agent owns.
+ * @param status - the lifecycle state the monitor reads to pick followup vs inject.
+ */
+function stubAgent(ctx: Context, rawId: string, status: 'idle' | 'running' = 'idle'): Agent {
   const id = SessionId(rawId)
   const scopeFiber = ctx.plugin(() => {})
   const session = Session.create(id)
@@ -47,7 +53,7 @@ function stubAgent(ctx: Context, rawId: string): Agent {
     options: {},
     session,
     inbox: stubInbox(),
-    status: 'idle' as const,
+    status,
     ctx: scopeFiber.ctx,
     send: () => {},
     followup,
@@ -248,6 +254,42 @@ describe('runCommandTask', () => {
     // 0.1.7: a producer's outcome rides `JobRead.result` (the ring carries
     // streamed chunks; this job deliberately streams nothing).
     expect(read.result).toBe('hello\nworld\n')
+  })
+
+  it('injects the notice into a BUSY owner instead of waking it with followup', async () => {
+    // The idle→followup branch is covered above; this pins the other half of
+    // the monitor: a running owner gets an `inject` (the message queues for its
+    // next step) and must NOT be woken with `followup`.
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-busy', 'running')
+    ctx.agents.register(agent)
+    await tick()
+    ctx.provide('shell', stubShell)
+    shellOutput = ''
+    shellLossy = false
+    shellSpillPath = undefined
+
+    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+
+    await tick()
+    await tick()
+
+    expect(agent.followup).not.toHaveBeenCalled()
+    expect(agent.inject).toHaveBeenCalledTimes(1)
+    const message = (agent.inject as unknown as Mock).mock.calls[0]?.[0] as {
+      content: { text: string }[]
+      source: { kind: string; form: string; summary: string }
+    }
+    // Same fixed English template as the idle branch: only the delivery differs.
+    expect(message.content[0]?.text).toBe(
+      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+    )
+    // Still the plugin's own notice source (never the tool-jobs shape).
+    expect(message.source.kind).toBe('task-runner')
+    expect(message.source.form).toBe('notice')
   })
 
   it('keeps the spill-file pointer on the job when the executor truncated', async () => {

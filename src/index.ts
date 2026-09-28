@@ -15,10 +15,12 @@
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-settings'
+// Type-only: the `ctx.skills` Context merge (the run-configuration skill is
+// registered through the official registry face).
+import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-storage-domain'
 // Type-only merges: ctx.tools / ctx.agents / ctx.connection / ctx.settings /
-// ctx.storageDomain context augmentation. (ctx.skills is consumed through a
-// structural cast in host/skill.ts — dsh-skill is not a project dependency.)
+// ctx.storageDomain / ctx.skills context augmentation.
 import type {} from '@deepseek-ai/dsh-tools'
 import { registerTaskRunnerRpc } from './host/rpc.ts'
 import { installTaskRunnerSwitch, type TaskRunnerSettings } from './host/settings.ts'

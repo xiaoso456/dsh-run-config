@@ -1,0 +1,28 @@
+/* Indeterminate spinner for the task-list loading notice. Size is set by the
+   caller through `font-size` (1em box) so the same ring fits the combo pill
+   and the dialog's empty state. */
+
+.spinner {
+  flex: none;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: spinner-turn 800ms linear infinite;
+}
+
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -1,0 +1,21 @@
+[
+  {
+    "comment": "Session-title generation asks for a 64-token completion with thinking off.",
+    "when": { "maxTokensAtMost": 64 },
+    "reply": { "text": "Mock 作业诊断会话" }
+  },
+  {
+    "comment": "When a background command finishes, the plugin injects its completion notice into the session. This rule reacts to that notice: it captures the job id out of the notice text (`job (task-N)`) and calls the real `job_output` tool with it, so the job's stdout/stderr comes back through the harness and is recorded in this server's request log — the only way to read a job's own output without a human in the loop.",
+    "when": { "textIncludes": "User-started job" },
+    "capture": { "jobId": "job (task-[0-9]+)" },
+    "reply": {
+      "toolCalls": [{ "name": "job_output", "input": { "job_id": "${jobId}" } }],
+      "usage": { "outputTokens": 24 }
+    }
+  },
+  {
+    "comment": "Default rule: mirror the last user message.",
+    "when": {},
+    "reply": { "echo": true }
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "comment": "Session-title generation asks for a 64-token completion with thinking off. Rules are first-match-wins, so the narrow match comes first.",
+    "when": { "maxTokensAtMost": 64 },
+    "reply": { "text": "Mock 工具调用会话" }
+  },
+  {
+    "comment": "The first real agent turn calls the plugin's model-facing tool. The harness executes it and sends the tool result back as the next request — that round trip is how the model-facing `task_run_config` loop is exercised without a real model. (`index` is the 1-based request ordinal.)",
+    "when": { "index": 2 },
+    "reply": {
+      "toolCalls": [
+        {
+          "name": "task_run_config",
+          "input": {
+            "action": "list",
+            "scope": "global"
+          }
+        }
+      ],
+      "usage": { "outputTokens": 32 }
+    }
+  },
+  {
+    "comment": "The request that carries the tool result settles the turn with a short text block.",
+    "when": {},
+    "reply": { "text": "已完成（mock 工具调用回合）" }
+  }
+]

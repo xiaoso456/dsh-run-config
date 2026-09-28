@@ -1,0 +1,26 @@
+/* The non-ready list line (loading / failed). Inherits the surrounding font
+   size and colour; only the failure state recolours itself. */
+
+.notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.notice[data-state="error"] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.icon {
+  flex: none;
+  display: inline-flex;
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
