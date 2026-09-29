@@ -5,7 +5,23 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-> 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.1 → dsh 0.2.0-rc.1（精确版本；本版起不再兼容 0.1.7 线）**、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
+> 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.2 → dsh 0.2.0-rc.2**、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
+
+## [0.2.2] - 2026-09-29
+
+> 正式版，发布在 `latest`。适配 dsh **0.2.0-rc.2**。与 0.2.1 **互不兼容**（peer 精确写死，运行时版本不一致就会被官方闸门禁用）：dsh 0.2.0-rc.1 线继续用 0.2.1，0.1.7 线用 0.2.0。
+
+### Changed
+
+- **适配 dsh 0.2.0-rc.2**：33 个 dsh `devDependencies` 与 13 个 `peerDependencies` 由 `0.2.0-rc.1` 精确改到 `0.2.0-rc.2`；`pnpm-workspace.yaml` 的发布年龄白名单同步加白。**零业务代码改动**——逐包核对官方 rc.1→rc.2 的 187 个提交（630 个文件）后确认本插件用到的契约全部未变：实质源改动只有 `IconThinkOutline*` 的图形微调、新增 `MenuGroup` 组件、`ui-renderer` 的一处 hooks 顺序修复、`ui-workspace` 把重命名快捷键从 Ctrl+Alt+R 改成 Ctrl+Alt+G、`api/remotes` 多挂一个新包 `dsh-user-questions`
+- **验收脚本参数化**：6 个仍写死 `http://127.0.0.1:3190` 的 `tests/cdp-*.mjs` 改为读 `DSH_BASE`（12 个脚本口径一致；3190 被其它实例占用时一样能验收）
+- **`tests/cdp-llm-run.mjs` 补上 hero「先绑定工作区」前置**：未绑定工作区时点运行只会把 prompt 填进草稿、无法提交，send 分支会因此**假红**（实测 3/3 确定性失败，先在 hero 选好工作区即恢复正常）；菜单选择同时改为「点开即读 + 重试」（菜单卡会被「工作区/任务列表落地」关掉，一次性 sleep 会错过窗口）
+
+### 说明
+
+- 真机验收（全局 CLI 0.2.0-rc.2 + 独立 profile 端口 3191 + 全新 profile 的 headless Chrome）：插件加载零错误（闸门通过）；`e2e-crud` 8 个 RPC 端点全通并自清理；client bundle 到达 HTTP 200；`cdp-refresh` / `cdp-header-order` / `cdp-workspace-select` / `cdp-combo` / `cdp-llm-run`（send 与 fill 两分支）/ `cdp-double-run` / `cdp-config-description-clear` / `cdp-shot` 全过、console error 0
+- 自测：`tsc --noEmit` 0 诊断 · **109 单测全过** · `biome check` 0 error · `tsdown` 构建 0 · `build:types` 0；官方 API 触点逐符号核验 **63/63**（含 15 个纯副作用导入可达）
+- 数据无迁移：任务仍在 `$DSH_HOME/storages/task_runner.json`（domain `task_runner`），RPC 端点、工具名、locale、slot 挂载点均未变
 
 ## [0.2.1] - 2026-09-28
 

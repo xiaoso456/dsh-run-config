@@ -60,7 +60,7 @@ git 安装会跑本包的 `prepare` 脚本构建产物；pnpm ≥10 会在首次
 
 - **Node.js** ≥ 22（`package.json` 的 `engines` 要求）
 - **Git Bash**（推荐）：Windows 上推荐使用 Git Bash 作为 shell 环境
-- 适用于 DeepSeek Harness `dsh` **0.2.0-rc.1**（本包 `peerDependencies` 精确写死 `0.2.0-rc.1`；dsh 的插件版本闸门按 `includePrerelease` 精确比对，**运行时版本与之不一致时本插件条目会被禁用**）。dsh 0.1.7 线请装 `@xiaoso/dsh-run-config@0.2.0`，0.1.5 线请装 `0.1.5`——**0.2.1 起不再兼容这两条线**
+- 适用于 DeepSeek Harness `dsh` **0.2.0-rc.2**（本包 `peerDependencies` 精确写死 `0.2.0-rc.2`；dsh 的插件版本闸门按 `includePrerelease` 精确比对，**运行时版本与之不一致时本插件条目会被禁用**）。dsh 0.2.0-rc.1 线请装 `@xiaoso/dsh-run-config@0.2.1`，0.1.7 线装 `0.2.0`，0.1.5 线装 `0.1.5`
 
 ## 构建
 

@@ -14,7 +14,7 @@
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
-const BASE = 'http://127.0.0.1:3190'
+const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
 const TASK_NAME = `combo-verify-${Date.now().toString(36)}`
 
 /** Create a global command task through the host RPC proxy so the run

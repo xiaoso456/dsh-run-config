@@ -111,6 +111,7 @@ async function main() {
 
   const results = {
     newSession: false,
+    workspaceSelected: null,
     taskPicked: false,
     runClicked: false,
     draft: null,
@@ -137,19 +138,54 @@ async function main() {
   }
   if (!results.newSession) throw new Error('never reached a session view with the run control')
 
-  await evaluate(`(() => {
-    const run = document.querySelector('[aria-label="运行"]')
-    run.parentElement.querySelector('[aria-expanded]').click()
-    return true
+  // Precondition (the same one `cdp-hero-llm` documents): the hero run control can
+  // only DELIVER when a workspace is bound. With the chip reading "选择工作区" a run
+  // fills the composer but cannot submit, so the send assertion would measure this
+  // environment prerequisite instead of the plugin. Bind a workspace first; on a
+  // profile that already has one this is a no-op.
+  results.workspaceSelected = await evaluate(`(() => {
+    const row = document.querySelector('[class*="heroWorkspaceRow"]')
+    const chip = row === null ? null : row.querySelector('button[aria-label="选择工作区"]')
+    if (chip === null || !/选择工作区|Select workspace/.test(chip.innerText)) return true
+    chip.click()
+    return false
   })()`)
-  await sleep(1000)
-  results.taskPicked = await evaluate(`(() => {
-    const row = [...document.querySelectorAll('button[role="menuitem"]')].find((r) =>
-      r.textContent.includes(${JSON.stringify(TASK_NAME)}),
-    )
-    if (row) row.click()
-    return row !== undefined
-  })()`)
+  if (results.workspaceSelected === false) {
+    await sleep(600)
+    results.workspaceSelected = await evaluate(`(() => {
+      const rows = [...document.querySelectorAll('button[role="menuitem"], button')]
+        .filter((b) => b.getBoundingClientRect().width > 0)
+        .filter((b) => !/选择工作区|添加工作区|Select workspace|Add workspace/.test(b.innerText))
+      if (rows.length === 0) return false
+      rows[0].click()
+      return true
+    })()`)
+    await sleep(2000)
+  }
+
+  // Menu reads race the "workspace/task list landing" re-render that closes the
+  // card (documented in cdp-combo), so open-and-read with retries instead of one
+  // fixed wait.
+  let picked = false
+  for (let attempt = 0; attempt < 6 && !picked; attempt += 1) {
+    await evaluate(`(() => {
+      const run = document.querySelector('[aria-label="运行"]')
+      run.parentElement.querySelector('[aria-expanded]').click()
+      return true
+    })()`)
+    for (let i = 0; i < 20 && !picked; i += 1) {
+      await sleep(120)
+      picked = await evaluate(`(() => {
+        const row = [...document.querySelectorAll('button[role="menuitem"]')].find((r) =>
+          r.textContent.includes(${JSON.stringify(TASK_NAME)}),
+        )
+        if (row === undefined) return false
+        row.click()
+        return true
+      })()`)
+    }
+  }
+  results.taskPicked = picked
   await sleep(1000)
   results.runClicked = await evaluate(`(() => {
     const run = document.querySelector('[aria-label="运行"]')

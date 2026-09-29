@@ -16,7 +16,7 @@
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
-const BASE = 'http://127.0.0.1:3190'
+const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
 const TASK_NAME = `空prompt验证-${Date.now().toString(36)}`
 const FOREIGN_WS_PATH = 'D:\\__no_such_workspace__'
 
