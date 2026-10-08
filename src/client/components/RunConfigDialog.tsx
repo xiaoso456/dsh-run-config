@@ -353,6 +353,10 @@ export function RunConfigDialog({
     // state has to end with it: otherwise switching back re-mounts the card with
     // `open={true}` and a dropdown the user never asked for appears.
     setWorkspaceOpen(false)
+    // The `workspaces[0]` fallback here is a FORM PREFILL, not a run target: it
+    // only fills an empty, visible, editable field, and nothing runs until the
+    // user saves and presses ▶. That is why it stays while the hero's silent
+    // `workspaces[0]` substitution was removed (round-1 review P2).
     patchDraft({
       scope,
       ...(scope === 'workspace' && (draft?.workspacePath ?? '') === ''

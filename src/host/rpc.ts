@@ -26,7 +26,7 @@ import {
 } from '../shared/wire.ts'
 import { runCommandTask } from './command.ts'
 import { setApprovalLocale } from './locale.ts'
-import type { TaskPatch, TaskStore } from './tasks.ts'
+import { TASK_SCOPES, TASK_TYPES, type TaskPatch, type TaskStore } from './tasks.ts'
 
 /** The channel result shape: `{ ok, value }` / `{ ok, error }`. */
 type RpcResult<T> = ConnectionRpcResult<T>
@@ -134,13 +134,16 @@ async function dispatch(
     case 'tasks/create': {
       const input = requireObject(payload)
       requireString(input, 'name', 'create requires name')
-      requireString(input, 'type', 'create requires type')
-      requireString(input, 'scope', 'create requires scope')
+      // Enum-checked, not cast: a `as 'llm' | 'command'` assertion is compile-time
+      // only, and an out-of-set value reaches the medium as-is (the storage layer
+      // validates records only when it opens the domain).
+      const type = requireEnum(input, 'type', TASK_TYPES, 'create type')
+      const scope = requireEnum(input, 'scope', TASK_SCOPES, 'create scope')
       return ok({
         task: await store.create({
           name: input.name as string,
-          type: input.type as 'llm' | 'command',
-          scope: input.scope as 'global' | 'workspace',
+          type,
+          scope,
           // Every optional TaskCreateInput field is listed by hand here, and a
           // forgotten one is dropped silently.
           ...(input.description !== undefined ? { description: input.description as string } : {}),
@@ -157,8 +160,14 @@ async function dispatch(
     case 'tasks/update': {
       const input = requireObject(payload)
       const id = requireString(input, 'id', 'update requires id')
+      const patch = stripUndefined(input.patch)
+      // The two shape-deciding fields get the same runtime whitelist as create;
+      // the rest of the patch is merged by TaskStore.update, which re-validates
+      // the merged record.
+      requireOptionalEnum(patch, 'type', TASK_TYPES, 'update patch type')
+      requireOptionalEnum(patch, 'scope', TASK_SCOPES, 'update patch scope')
       return ok({
-        task: await store.update(id, stripUndefined(input.patch) as TaskPatch),
+        task: await store.update(id, patch as TaskPatch),
       })
     }
     case 'tasks/delete': {
@@ -218,6 +227,31 @@ function requireString(input: Record<string, unknown>, field: string, message: s
   const value = input[field]
   if (typeof value !== 'string' || value.length === 0) throw new Error(message)
   return value
+}
+
+/** Require a string field to be one of `allowed` (the closed value set). */
+function requireEnum<T extends string>(
+  input: Record<string, unknown>,
+  field: string,
+  allowed: readonly T[],
+  label: string,
+): T {
+  const value = input[field]
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new Error(`${label} must be one of ${allowed.join(', ')}`)
+  }
+  return value as T
+}
+
+/** Validate an OPTIONAL enum field of a partial patch, when the caller sent it. */
+function requireOptionalEnum<T extends string>(
+  input: Record<string, unknown>,
+  field: string,
+  allowed: readonly T[],
+  label: string,
+): void {
+  if (input[field] === undefined) return
+  requireEnum(input, field, allowed, label)
 }
 
 /** Drop `undefined` entries from a partial patch (JSON has no undefined). */

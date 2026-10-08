@@ -199,4 +199,21 @@ describe('task_run_config execute body', () => {
     const { tool } = await mountTool()
     await expect(tool.execute({ action: 'nope' as never })).rejects.toThrow(/unknown action/)
   })
+
+  // Round-1 review P1, model path: the description alone said `"llm" |
+  // "command"`, which does not stop the model from sending anything — the
+  // parameter DSL's `enum` does. Without it a `type: "shell"` call passes
+  // argument validation and reaches the medium (see
+  // tests/task-write-boundary.spec.ts for what that costs).
+  it('pins type/scope to their closed sets in the model-facing parameter schema', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    registerTaskRunnerTool(ctx, fakeStore().store)
+    const registered = ctx.tools.get('task_run_config') as unknown as {
+      parameters: { properties: Record<string, { enum?: string[] }> }
+    }
+    expect(registered.parameters.properties.type?.enum).toEqual(['llm', 'command'])
+    expect(registered.parameters.properties.scope?.enum).toEqual(['global', 'workspace'])
+  })
 })

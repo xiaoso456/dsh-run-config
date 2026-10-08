@@ -20,11 +20,17 @@ import { z } from 'zod'
 /** Task id: a uuid string. */
 export type TaskId = string
 
+/** Every allowed `type` value: the runtime whitelist the write boundary enforces. */
+export const TASK_TYPES = ['llm', 'command'] as const
+
+/** Every allowed `scope` value: the runtime whitelist the write boundary enforces. */
+export const TASK_SCOPES = ['global', 'workspace'] as const
+
 /** Task type: `llm` sends a prompt into the current session; `command` runs a bash command in the background. */
-export type TaskType = 'llm' | 'command'
+export type TaskType = (typeof TASK_TYPES)[number]
 
 /** Visibility scope. `global` shows in every workspace; `workspace` only in the declared one. */
-export type TaskScope = 'global' | 'workspace'
+export type TaskScope = (typeof TASK_SCOPES)[number]
 
 /** One run configuration (see docs/预案-任务运行器.md §2.2). */
 export interface TaskRecord {
@@ -53,8 +59,8 @@ export const taskRecordSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
-  type: z.enum(['llm', 'command']),
-  scope: z.enum(['global', 'workspace']),
+  type: z.enum(TASK_TYPES),
+  scope: z.enum(TASK_SCOPES),
   workspacePath: z.string().optional(),
   llmPrompt: z.string().optional(),
   autoSend: z.boolean().optional(),
@@ -103,21 +109,48 @@ export const TASK_STORE_SPEC = defineDomain({
 /** Read side of a task for JSON RPC / tool results: identical to the record. */
 export type TaskView = TaskRecord
 
+/**
+ * Whitelist one runtime string against a closed value set.
+ *
+ * `type` and `scope` decide a record's SHAPE, and the storage layer validates
+ * records only when it OPENS the domain (`KvTable.put` never parses). A value
+ * outside the whitelist would therefore be persisted as-is and make every
+ * later `open` fail with `invalid-record` — which takes the whole plugin down
+ * (`openTaskStore` is the first statement of `apply`), with no UI path able to
+ * repair it. This check lives in {@link validateTaskInput}, the one function
+ * both `create` and `update` pass through.
+ * @param value - the untrusted runtime value.
+ * @param allowed - the closed set of accepted values.
+ * @param label - field name used in the rejection message.
+ * @returns the value, narrowed to the whitelist.
+ */
+function requireOneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new Error(`${label} must be one of ${allowed.join(', ')}`)
+  }
+  return value as T
+}
+
 /** Validate and normalize a user-supplied task input into a plain record. */
 export async function validateTaskInput(input: TaskCreateInput): Promise<TaskCreateInput> {
   const name = input.name.trim()
   if (name.length === 0) throw new Error('task name must not be empty')
+  // Runtime-checked, not just typed: the tool, the RPC handlers and the store
+  // all funnel through here, so this is where a bad value is rejected before it
+  // can reach the medium (see requireOneOf).
+  const type = requireOneOf(input.type, TASK_TYPES, 'task type')
+  const scope = requireOneOf(input.scope, TASK_SCOPES, 'task scope')
   // llmPrompt / command are intentionally allowed to be empty here: the
   // dialog creates an editable draft (IDEA-style) and fills it later. The
   // run-time guards reject empty prompts (RunControl) and empty commands
   // (runCommandTask) so an unfinished draft can never execute.
-  if (input.scope === 'workspace') {
+  if (scope === 'workspace') {
     if (input.workspacePath === undefined || input.workspacePath.trim().length === 0) {
       throw new Error('workspace-scoped tasks require a workspacePath')
     }
   }
   const workspacePath =
-    input.scope === 'workspace'
+    scope === 'workspace'
       ? await canonicalizeWorkspacePath(input.workspacePath as string)
       : undefined
   // A field belongs to one scope or type only, and this is the single place that
@@ -126,18 +159,14 @@ export async function validateTaskInput(input: TaskCreateInput): Promise<TaskCre
   // `workspacePath` and a `command` record from carrying an `llmPrompt`.
   return {
     name,
-    type: input.type,
-    scope: input.scope,
+    type,
+    scope,
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(workspacePath !== undefined ? { workspacePath } : {}),
-    ...(input.type === 'llm' && input.llmPrompt !== undefined
-      ? { llmPrompt: input.llmPrompt }
-      : {}),
-    ...(input.type === 'llm' && input.autoSend !== undefined ? { autoSend: input.autoSend } : {}),
-    ...(input.type === 'command' && input.command !== undefined ? { command: input.command } : {}),
-    ...(input.type === 'command' && input.notifyLlm !== undefined
-      ? { notifyLlm: input.notifyLlm }
-      : {}),
+    ...(type === 'llm' && input.llmPrompt !== undefined ? { llmPrompt: input.llmPrompt } : {}),
+    ...(type === 'llm' && input.autoSend !== undefined ? { autoSend: input.autoSend } : {}),
+    ...(type === 'command' && input.command !== undefined ? { command: input.command } : {}),
+    ...(type === 'command' && input.notifyLlm !== undefined ? { notifyLlm: input.notifyLlm } : {}),
   }
 }
 
@@ -221,6 +250,12 @@ export class TaskStore {
       createdAt: now,
       updatedAt: now,
     }
+    // Defense in depth on the durable boundary: `validateTaskInput` above is the
+    // intended gate, but the storage layer parses a record only when it OPENS
+    // the domain, so anything that slipped through would be written and brick
+    // the next open. This is the same schema `open` enforces, checked before the
+    // put instead of a restart later.
+    taskRecordSchema.parse(record)
     await this.table.put(record.id, record)
     await this.appendOrder(record.id)
     return record
@@ -251,6 +286,9 @@ export class TaskStore {
       ...normalized,
       updatedAt: new Date().toISOString(),
     }
+    // Same durable-boundary check as `create`: an update is the cheapest way to
+    // turn a healthy record into one that fails the next `open`.
+    taskRecordSchema.parse(record)
     await this.table.put(id, record)
     return record
   }
@@ -273,6 +311,8 @@ export class TaskStore {
       createdAt: now,
       updatedAt: now,
     }
+    // Same durable-boundary check as `create`/`update`.
+    taskRecordSchema.parse(record)
     await this.table.put(record.id, record)
     await this.appendOrder(record.id)
     return record

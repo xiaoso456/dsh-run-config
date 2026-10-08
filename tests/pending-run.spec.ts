@@ -215,4 +215,17 @@ describe('consumePendingRun (hero → session handoff)', () => {
     // start, otherwise a handoff arriving mid-run is cleared and never runs.
     expect(code).toContain('canStart')
   })
+
+  // Round-1 review P4: the handoff lookup must receive the tasks THIS control
+  // may act on (current workspace + global), not the whole cache — the two
+  // disagreed while `pendingRun`'s `visible` is documented as the former.
+  it('gives the handoff its own visible set, not the whole task cache', () => {
+    const source = readFileSync(
+      new URL('../src/client/components/RunControl.tsx', import.meta.url),
+      'utf8',
+    )
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    expect(code).toMatch(/visible:\s*visibleTasks/)
+    expect(code).not.toMatch(/visible:\s*visible,/)
+  })
 })

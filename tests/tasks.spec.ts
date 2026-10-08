@@ -6,7 +6,10 @@ import { describe, expect, it } from 'vitest'
 import {
   canonicalizeWorkspacePath,
   orderTasks,
+  TASK_SCOPES,
+  TASK_TYPES,
   type TaskRecord,
+  taskRecordSchema,
   validateTaskInput,
 } from '../src/host/tasks.ts'
 
@@ -32,6 +35,27 @@ describe('validateTaskInput', () => {
         llmPrompt: 'p',
       }),
     ).rejects.toThrow('task name must not be empty')
+  })
+
+  // Round-1 review P1: `type`/`scope` decide the record's SHAPE, and the storage
+  // layer validates records only when it OPENS the domain — an out-of-set value
+  // would be persisted as-is and make every later open fail with
+  // `invalid-record`, taking the whole plugin down with no UI repair path.
+  it('rejects a type outside the closed set', async () => {
+    await expect(
+      validateTaskInput({ name: 't', type: 'shell' as never, scope: 'global' }),
+    ).rejects.toThrow('task type must be one of llm, command')
+  })
+
+  it('rejects a scope outside the closed set', async () => {
+    await expect(
+      validateTaskInput({ name: 't', type: 'llm', scope: 'everywhere' as never }),
+    ).rejects.toThrow('task scope must be one of global, workspace')
+  })
+
+  it('keeps the storage schema enums equal to the runtime whitelists', () => {
+    expect(taskRecordSchema.shape.type.options).toEqual([...TASK_TYPES])
+    expect(taskRecordSchema.shape.scope.options).toEqual([...TASK_SCOPES])
   })
 
   // Draft-friendly: the dialog creates an empty llm/command draft (IDEA

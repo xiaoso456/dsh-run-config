@@ -11,7 +11,14 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool, type ToolRunContext } from '@deepseek-ai/dsh-tools'
-import type { TaskPatch, TaskScope, TaskStore, TaskType } from '../tasks.ts'
+import {
+  TASK_SCOPES,
+  TASK_TYPES,
+  type TaskPatch,
+  type TaskScope,
+  type TaskStore,
+  type TaskType,
+} from '../tasks.ts'
 
 /** One task-management action. */
 export type TaskRunnerAction = 'list' | 'create' | 'update' | 'delete' | 'duplicate'
@@ -57,8 +64,8 @@ export const TASK_JSON_SCHEMA = {
     id: { type: 'string', required: true },
     name: { type: 'string', required: true },
     description: { type: 'string' },
-    type: { type: 'string', required: true },
-    scope: { type: 'string', required: true },
+    type: { type: 'string', enum: TASK_TYPES, required: true },
+    scope: { type: 'string', enum: TASK_SCOPES, required: true },
     workspacePath: { type: 'string' },
     llmPrompt: { type: 'string' },
     autoSend: { type: 'boolean' },
@@ -122,11 +129,13 @@ export function registerTaskRunnerTool(ctx: Context, store: TaskStore): () => vo
         },
         type: {
           type: 'string',
+          enum: TASK_TYPES,
           description:
             '"llm" (prompt sent into the current session) or "command" (bash command in the background).',
         },
         scope: {
           type: 'string',
+          enum: TASK_SCOPES,
           description: '"workspace" (default) or "global" (only when the user explicitly asks).',
         },
         workspacePath: {

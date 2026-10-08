@@ -25,6 +25,7 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { heroVisibleTasks, heroWorkspace } from '../core/heroRun.ts'
 import type { NS } from '../core/locales.ts'
 import type { TaskRunnerRpc } from '../core/rpc.ts'
 import { taskRunnerStore } from '../core/store.ts'
@@ -114,16 +115,13 @@ export function HeroRunControl({
   })
 
   // LLM tasks only: a blank hero has no session to run a command against
-  // (command tasks live in the session header / run-config dialog).
-  const currentWorkspace =
-    workspaces.find((workspace) => workspace.workspaceId === selectedId) ?? workspaces[0]
+  // (command tasks live in the session header / run-config dialog). The target
+  // is ONLY the workspace the chip shows — never a silent `workspaces[0]`
+  // fallback (the chip would keep showing its placeholder while the run control
+  // acted on another workspace).
+  const currentWorkspace = heroWorkspace(workspaces, selectedId)
   const visible = useMemo(
-    () =>
-      (snap.tasks ?? []).filter((task) => {
-        if (task.type !== 'llm') return false
-        if (task.scope === 'global') return true
-        return task.scope === 'workspace' && task.workspacePath === currentWorkspace?.path
-      }),
+    () => heroVisibleTasks(snap.tasks ?? [], currentWorkspace?.path),
     [snap.tasks, currentWorkspace?.path],
   )
   const selected = visible.find((task) => task.id === snap.selectedId) ?? visible[0]
@@ -146,8 +144,10 @@ export function HeroRunControl({
     }
     const target = currentWorkspace
     if (target === undefined) {
-      // No workspace at all — NOT "no visible configurations" (a selected task
-      // may well exist; there is simply nowhere to run it).
+      // Nothing is picked: NOT "no workspaces at all" and not "no visible
+      // configurations" (a visible task may well exist; there is simply no
+      // workspace the user authorized). The chip shows its pick-a-workspace
+      // placeholder and ▶ is disabled; this branch covers the keyboard path.
       showToast(t('heroNoWorkspace'), <IconWarningOutlineRegular size={14} />)
       return
     }
@@ -357,7 +357,7 @@ export function HeroRunControl({
           }
           placeholder={t('selectTask')}
           open={taskMenuOpen}
-          runEnabled={selected !== undefined && !busy}
+          runEnabled={selected !== undefined && currentWorkspace !== undefined && !busy}
           pickLabel={t('selectTask')}
           runLabel={() =>
             selected === undefined ? t('noVisibleTasks') : t('runTaskHint', { name: selected.name })

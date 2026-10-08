@@ -39,6 +39,7 @@ import {
   type TaskRunnerDialogSettings,
 } from './components/RunConfigDialog.tsx'
 import { RunControl, type RunControlInjected } from './components/RunControl.tsx'
+import { installLocaleReport } from './core/localeReport.ts'
 import { en, NS, zh } from './core/locales.ts'
 import { createTaskRunnerRpc } from './core/rpc.ts'
 
@@ -98,9 +99,22 @@ export function apply(ctx: ClientContext): void {
     if (autoSend) input.submit()
   }
 
-  // Report the UI locale to the Host so the approval gate renders its reason
-  // in the user's language (fire-and-forget; the gate falls back to 'en').
-  void rpc.call('client/locale', { locale: getActiveLocale() }).catch(() => {})
+  // Report the UI locale to the Host so the approval gate renders its reason in
+  // the user's language (fire-and-forget; the gate falls back to 'en'), and KEEP
+  // reporting: switching language while the page stays open must reach the Host
+  // without a reload, so the initial report rides the client locale face's own
+  // change subscription (`ctx.effect` disposes it with the plugin).
+  ctx.effect(
+    () =>
+      installLocaleReport({
+        getActiveLocale,
+        report: (locale) => {
+          void rpc.call('client/locale', { locale }).catch(() => {})
+        },
+        subscribe: (listener) => ctx.locale.subscribe(listener),
+      }),
+    'task-runner: approval-locale reporting',
+  )
 
   // Session header: ▶ run + task picker + ⚙ config. Registered into the
   // header UTILITIES cluster with an order BELOW the official "Session log"

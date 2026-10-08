@@ -19,7 +19,11 @@ import { describe, expect, it } from 'vitest'
 import { TASK_RUNNER_RPC_COVERAGE } from '../src/client/core/types.ts'
 import { registerTaskRunnerRpc } from '../src/host/rpc.ts'
 import type { TaskRecord, TaskStore } from '../src/host/tasks.ts'
-import { TASK_RUNNER_ENDPOINTS, taskRunnerRoutePath } from '../src/shared/wire.ts'
+import {
+  TASK_RUNNER_ENDPOINTS,
+  taskRunnerEndpointName,
+  taskRunnerRoutePath,
+} from '../src/shared/wire.ts'
 
 /** One route as the plugin registers it on the Connection Fetch registry. */
 interface RegisteredRoute {
@@ -233,6 +237,124 @@ describe('task-runner Fetch routes (dsh 0.1.7 wire)', () => {
       autoSend: false,
       notifyLlm: false,
     })
+  })
+})
+
+/**
+ * Round-1 review P1, browser path: `tasks/create` and `tasks/update` used to
+ * hand `type`/`scope` to the store behind a TypeScript `as` assertion (compile
+ * time only). An out-of-set value reaching the medium makes every later domain
+ * `open` fail with `invalid-record` — and `openTaskStore` is the first
+ * statement of `apply`, so the plugin never activates again. These tests pin the
+ * runtime whitelist on the routes.
+ */
+describe('task type/scope runtime whitelist on the RPC routes', () => {
+  /** A store recording every create/update call the handler forwards. */
+  function recordingStore(): {
+    store: TaskStore
+    created: Record<string, unknown>[]
+    updated: Array<{ id: string; patch: unknown }>
+  } {
+    const created: Record<string, unknown>[] = []
+    const updated: Array<{ id: string; patch: unknown }> = []
+    const store = {
+      ...stubStore(),
+      create: async (input: Record<string, unknown>) => {
+        created.push(input)
+        return {
+          id: 'task-new',
+          name: input.name,
+          type: input.type,
+          scope: input.scope,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }
+      },
+      update: async (id: string, patch: unknown) => {
+        updated.push({ id, patch })
+        return stubStore().list()[0]
+      },
+    } as unknown as TaskStore
+    return { store, created, updated }
+  }
+
+  /** POST one envelope to `endpoint` and decode the result. */
+  async function call(
+    routes: Map<string, RegisteredRoute>,
+    endpoint: string,
+    payload: unknown,
+  ): Promise<{ ok: boolean; error?: { code: string; message: string } }> {
+    const route = routes.get(taskRunnerRoutePath(endpoint))
+    if (route === undefined) throw new Error(`${endpoint} route missing`)
+    const response = await route.fetch(
+      request(taskRunnerRoutePath(endpoint), {
+        type: 'client-request',
+        rpcId: 'rpc-p1',
+        method: taskRunnerEndpointName(endpoint),
+        payload,
+      }),
+    )
+    const body = (await response.json()) as {
+      result: { ok: boolean; error?: { code: string; message: string } }
+    }
+    return body.result
+  }
+
+  it('refuses a create whose type is not in the closed set, without touching the store', async () => {
+    const { store, created } = recordingStore()
+    const routes = await mount(store)
+    const result = await call(routes, 'tasks/create', {
+      name: 'bad',
+      type: 'shell',
+      scope: 'global',
+      command: 'echo hi',
+    })
+    expect(result.ok).toBe(false)
+    expect(result.error).toEqual({
+      code: 'internal',
+      message: 'create type must be one of llm, command',
+      details: {},
+    })
+    expect(created).toEqual([])
+  })
+
+  it('refuses a create whose scope is not in the closed set', async () => {
+    const { store, created } = recordingStore()
+    const routes = await mount(store)
+    const result = await call(routes, 'tasks/create', {
+      name: 'bad',
+      type: 'llm',
+      scope: 'everywhere',
+      llmPrompt: 'p',
+    })
+    expect(result.ok).toBe(false)
+    expect(result.error?.message).toBe('create scope must be one of global, workspace')
+    expect(created).toEqual([])
+  })
+
+  it('refuses an update patch whose type/scope is not in the closed set', async () => {
+    const { store, updated } = recordingStore()
+    const routes = await mount(store)
+    const badType = await call(routes, 'tasks/update', { id: 'task-1', patch: { type: 5 } })
+    expect(badType.ok).toBe(false)
+    expect(badType.error?.message).toBe('update patch type must be one of llm, command')
+    const badScope = await call(routes, 'tasks/update', { id: 'task-1', patch: { scope: null } })
+    expect(badScope.ok).toBe(false)
+    expect(badScope.error?.message).toBe('update patch scope must be one of global, workspace')
+    expect(updated).toEqual([])
+  })
+
+  it('still forwards a legal update patch (shape fields included)', async () => {
+    const { store, updated } = recordingStore()
+    const routes = await mount(store)
+    const result = await call(routes, 'tasks/update', {
+      id: 'task-1',
+      patch: { type: 'command', scope: 'global', command: 'echo hi' },
+    })
+    expect(result.ok).toBe(true)
+    expect(updated).toEqual([
+      { id: 'task-1', patch: { type: 'command', scope: 'global', command: 'echo hi' } },
+    ])
   })
 })
 

@@ -71,10 +71,17 @@ export function RunControl({
 
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  // One command run in flight at a time. The ref is the gate: every click in the
-  // same tick reads the same `busy` state, and three clicks in one tick used to
-  // issue three `tasks/run` calls (three background processes for one
-  // configuration). Same door as HeroRunControl's `createGate`.
+  // One run in flight at a time. The ref is the gate: every click in the same
+  // tick reads the same `busy` state, and three clicks in one tick used to issue
+  // three `tasks/run` calls (three background processes for one configuration).
+  // Same door as HeroRunControl's `createGate`.
+  //
+  // The gate is only SET on the command branch below. The LLM branch ends in
+  // `inputActions.submit()`, whose official submit plane (its phase/claim state
+  // machine) is what owns "one send per click burst" — not this ref. That
+  // asymmetry is deliberate, not a missing guard; the alternative (gating LLM
+  // runs here too) is unverified, and the only acceptance script with a request
+  // to count (`tests/cdp-double-run.mjs`) covers the command path.
   const runGate = useRef(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const { node: toastNode, show: showToast } = useToast()
@@ -88,9 +95,10 @@ export function RunControl({
 
   const visible = useMemo(() => snap.tasks ?? [], [snap.tasks])
 
-  const globalTasks = visible.filter((task) => task.scope === 'global')
-  const currentTasks = visible.filter(
-    (task) => task.scope !== 'global' && task.workspacePath === cwd,
+  const globalTasks = useMemo(() => visible.filter((task) => task.scope === 'global'), [visible])
+  const currentTasks = useMemo(
+    () => visible.filter((task) => task.scope !== 'global' && task.workspacePath === cwd),
+    [visible, cwd],
   )
 
   // The selection must come from the VISIBLE tasks (current workspace first,
@@ -98,7 +106,7 @@ export function RunControl({
   // workspace's task (it is global across workspaces), and visible[0] may be
   // one too. Falling back to the first visible task keeps the run control on
   // the current workspace's configurations.
-  const visibleTasks = [...currentTasks, ...globalTasks]
+  const visibleTasks = useMemo(() => [...currentTasks, ...globalTasks], [currentTasks, globalTasks])
   const selected = visibleTasks.find((task) => task.id === snap.selectedId) ?? visibleTasks[0]
 
   // Loading / empty / failed must be three different messages here too (the
@@ -168,7 +176,13 @@ export function RunControl({
       sessionId,
       tasksLoaded: snap.tasks !== null,
       canStart: !busy,
-      visible,
+      // The handoff lookup uses THIS control's visible set (current workspace +
+      // global) — the exact tasks it may act on, per the `pendingRun` contract.
+      // The hero hands over a configuration it showed for the workspace it just
+      // opened, so the target is either global or bound to that same workspace,
+      // whose path this session's cwd echoes (both come from the workspace
+      // registry).
+      visible: visibleTasks,
       clearPendingRun: (pending) => {
         taskRunnerStore.clearPendingRun(pending)
       },
@@ -181,7 +195,9 @@ export function RunControl({
     })
     // `busy` is a dependency because a handoff arriving during a run is
     // deferred: it must be consumed as soon as this control is free again.
-  }, [snap.pendingRun, snap.tasks, visible, inputActions, sessionId, busy])
+    // `visibleTasks` is one too: the lookup must use the CURRENT workspace's
+    // view, and a workspace/task change re-targets what this control may act on.
+  }, [snap.pendingRun, snap.tasks, visibleTasks, inputActions, sessionId, busy])
 
   // Menu entries: the header picker shows only the CURRENT workspace and
   // GLOBAL tasks (the run button acts on this session; every other

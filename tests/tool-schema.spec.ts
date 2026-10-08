@@ -58,4 +58,11 @@ describe('TASK_JSON_SCHEMA', () => {
       expect(properties[key]).toMatchObject({ required: true })
     }
   })
+
+  // Round-1 review P1: the output schema describes records this plugin wrote,
+  // so its `type`/`scope` are the same closed sets the write boundary enforces.
+  it('pins type/scope to their closed sets in the output schema too', () => {
+    expect(TASK_JSON_SCHEMA.properties.type).toMatchObject({ enum: ['llm', 'command'] })
+    expect(TASK_JSON_SCHEMA.properties.scope).toMatchObject({ enum: ['global', 'workspace'] })
+  })
 })
