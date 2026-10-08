@@ -7,6 +7,31 @@
 
 > 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.2 → dsh 0.2.0-rc.2**、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
 
+## [Unreleased]
+
+### Fixed
+
+- **命令任务不再被 shell 执行器的默认截止时间杀掉**：`shell.resolve` 现在显式传 `onExpiry: 'none'`。此前它没传，于是落到执行器默认值（`PwshLocalExecutor` / `LocalBashExecutor` 的 `onExpiry: request.onExpiry ?? 'kill'` + `timeoutMs` 默认 `120000`），**任何超过 2 分钟的命令任务都会在第 120 秒被 deadline 杀掉**，且因为 killed 一律被映射成不带 detail 的 `{ status: 'killed' }`，在会话里只表现为一句 `finished [status: killed]`、`job_output` 空空如也，完全看不出原因（真机实例：pi-agent 的「Build Gateway Binaries」两次被杀，间隔精确 120s）。背景作业本就不该受执行器 deadline 约束——官方 `dsh-tool-bash` / `dsh-tool-pwsh` 在后台分支同样显式传 `onExpiry: 'none'`，只由作业自身生命周期（cancel / owner 回收 / 服务 teardown）决定何时结束。**注：这是 dsh 0.1.7 的官方回归**——0.1.5/0.1.6 的 `shell.start()` 后台路径本就注释写明「Background runs ignore timeoutMs」，0.1.7 的 `d6bebc5783` 把 `run()`/`start()` 合并为 `execute()` 并引入 `onExpiry`（默认 `kill`）后，后台不再豁免（该提交自述 "the 'start ignores timeoutMs' wart dies"）。我们插件迁移 0.1.7 时只换了 API 名、没跟上默认语义
+- **`cancel` 现在也能中断「准备阶段」**：作业持有自己的 `AbortController`，signal 随 spec 交给执行器；`cancel` 先 `controller.abort(reason)` 再对已存在的句柄 `kill()`。此前 `cancel` 只能对已解析的 `ShellExecution` 调 `kill()`，若 kill 请求到达时进程尚未 spawn 完成（慢启动 / 受限模式下的 confine 准备），这次取消会**整个丢失**。受限执行器在准备阶段被 abort 时会 reject `execute`（`dsh-pwsh-sandbox` 的 `mapError` 在 `spec.signal.aborted` 时重新抛出），该分支按官方 `processJob` 的口径映射为 `killed` 而非 `failed`
+- **killed 的起因不再被抹平**：`{ status: 'killed' }` 现在带上 `signal: <SIG>`（或 `killed before exit`），于是「deadline 杀 / 用户 `job_kill` / owner 回收」在通知里可区分。**刻意不回显 `killedReason`**——`dsh-jobs-local` 结算时本就会把它追加进 `detail`（`killJob` → `${detail}; ${killReason}`），回显会得到 `user stopped it; user stopped it`
+- **任务写入边界加固**：`type` / `scope` 现在经运行时白名单校验（RPC 参数、工具 schema 的 `enum`、`validateTaskInput` 三处），并在存储边界再校验一次。此前非白名单值会被**原样写进存储**，而存储层只在 `open` 时解析记录——一次坏写就会让下次 `open` 失败、`openTaskStore`（`apply` 的第一句）抛错、**整个插件起不来且没有任何 UI 路径可修复**
+- **命令任务验收脚本不再因侧边栏时序而假红**：`tests/cdp-pwsh.mjs` 开侧边栏后固定等 800ms 就取会话行，而大会话库的 profile 此刻**项目行已渲染、会话行尚未加载完**，选择器落空后回退到 `rows[0]`（项目行）→ 点它进的是工作区而非会话 → 脚本在创建任务前就退出。改为轮询等待真实会话行出现再点击
+
+### Changed
+
+- **插件显示元数据**：新增 `locale/en.json` + `locale/zh.json`（`meta.title` / `meta.description`）与 `package.json` 的 `./locale/*.json` 导出——官方 `readPluginMeta` 会在插件管理界面显示中英标题与描述（格式与 `dsh-schedule` 等官方包一致，已用官方读取器实测）
+- **客户端渲染开销与竞态**：`RunControl` 的任务分组改为 `useMemo`，`pendingRun` 交接查找改用**当前工作区可见集**（`visibleTasks`）而非全量列表，并对依赖数组补全（工作区/任务变化会重新定位可操作目标）
+- **纯逻辑抽离**：hero 运行目标判定抽为 `core/heroRun.ts`、语言上报抽为 `core/localeReport.ts`（无 React、无浏览器 API，可单测）
+
+### 说明
+
+- 真机验收（2026-10-08，独立 profile + 端口 3191，未动 3190）：同一台真机、同一个真 `SandboxPwshExecutor`、同样配 8s deadline 的 A/B——旧形状（不传 `onExpiry`）下 20s 命令 `status=killed`、`timedOut=true`、8.0s 被砍；修好后同样 20s 命令 `status=completed`、`exit=0`、跑满 20.6s。完整插件链路（真实例 `tasks/run`，与 ▶ 按钮同路径）40s 命令在 8s deadline 下 elapsed 42s 且 marker 按时写出 → PASS
+- e2e 验收套件（13 个 `cdp-*.mjs`，每脚本独立 profile + 独立调试端口）：**10 PASS / 1 SKIP（按设计）/ 2 FAIL**，两个 FAIL 均已定位为非插件回归——`cdp-header-order` 单独重跑 PASS（抖动）；`cdp-pwsh` 为上述侧边栏时序缺陷，修复后连跑 PASS
+- 自测：`tsc --noEmit` 0 诊断 · **139 单测全过**（`command-runner.spec.ts` 5→9 条；新增 `hero-run` 7 / `task-write-boundary` 6 / `locale-report` 3）· `biome check` 0 error · `tsdown` 0 · `build:types` 0
+- 环境提示：本机 `workspace-write` 模式下无可用沙箱后端，命令任务会以 `[status: failed, exit code: 127]` 失败（看着像命令不存在，实为沙箱拒绝运行）；真机跑命令任务请用 `DSH_PERMISSION_MODE=danger-full-access`
+- **未发布图标**：`icon.png` 已从 `package.json`（manifest `icon` 字段、`./icon` 导出、`files`）与 `.gitignore` 中排除。实测发现已安装的 dsh 0.2.0-rc.2 的 `iconOf` **只认 `package.json` 顶层 `icon` 字段**，没有 `${specifier}/icon` 导出的解析路径（后者是 0.2.1-alpha 之后才加的），故单加导出在现运行时无效；将来要发布图标需同时保留两者并用官方 `readPluginMeta` 实测
+
+
 ## [0.2.2] - 2026-09-29
 
 > 正式版，发布在 `latest`。适配 dsh **0.2.0-rc.2**。与 0.2.1 **互不兼容**（peer 精确写死，运行时版本不一致就会被官方闸门禁用）：dsh 0.2.0-rc.1 线继续用 0.2.1，0.1.7 线用 0.2.0。

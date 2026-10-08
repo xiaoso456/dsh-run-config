@@ -9,3 +9,14 @@ tests/runs/
 # Internal docs stay local; the README screenshot folder is published.
 docs/*
 !docs/images/
+# Local scratch: analysis notes and generated/reference assets stay local.
+review.md
+scan-notes.md
+.workflow-one/
+dsh-image-gen/
+refs-game-icons/
+tmp-icon-preview/
+# Release notes are authored in the CHANGELOG; no per-version scratch files.
+.release-notes-*.md
+# Plugin icon is not shipped yet (work in progress).
+icon.png
