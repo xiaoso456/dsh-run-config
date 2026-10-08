@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Run Config",
+    "description": "Save LLM prompts and shell commands as run configurations, launch them with one click, and let the model manage them with a tool."
+  }
+}

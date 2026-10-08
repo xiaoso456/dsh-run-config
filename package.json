@@ -45,6 +45,7 @@
       "default": "./lib/client.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -52,7 +53,8 @@
     "lib/client.js",
     "cordis.patch.yml",
     "lib/types/**/*.d.ts",
-    "docs/images/"
+    "docs/images/",
+    "locale/*.json"
   ],
   "dsh": {
     "client": {
