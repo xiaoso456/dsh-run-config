@@ -113,15 +113,24 @@ async function main() {
       return true
     })()`)
     await sleep(800)
-    await evaluate(`(() => {
-      const rows = [...document.querySelectorAll('[role="treeitem"]')]
-      const pick =
-        rows.find(r => r.className.includes('sessionRow') && !r.textContent.includes('新会话')) ??
-        rows.find(r => r.textContent.includes('pi_agent_rust')) ??
-        rows[0]
-      if (pick) pick.click()
-      return true
-    })()`)
+    // The sidebar renders its WORKSPACE rows first and its session rows later
+    // (a profile with a large session catalog can take seconds). Clicking after
+    // a fixed 800ms used to fall through to `rows[0]` — a workspace row — which
+    // never enters a Session, so the script exited before creating anything.
+    // Wait for a real session row instead of racing the list.
+    let picked = null
+    for (let i = 0; i < 20; i++) {
+      picked = await evaluate(`(() => {
+        const rows = [...document.querySelectorAll('[role="treeitem"]')]
+        const row = rows.find(r => r.className.includes('sessionRow') && !r.textContent.includes('新会话'))
+        if (!row) return null
+        row.click()
+        return row.textContent.trim().slice(0, 40)
+      })()`)
+      if (picked !== null) break
+      await sleep(500)
+    }
+    console.log('[pwsh] session row picked:', JSON.stringify(picked))
     for (let i = 0; i < 30; i++) {
       await sleep(1000)
       if (await hasSessionHeader()) {
