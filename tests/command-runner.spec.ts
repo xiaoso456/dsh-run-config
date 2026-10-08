@@ -76,12 +76,66 @@ const shellRequests: ShellRequest[] = []
 interface ShellRequest {
   command: string
   workdir?: string
+  onExpiry?: string
+  signal?: AbortSignal
   sandboxPolicy?: { mode: string; workspaceRoot: string }
 }
 /** Captured output returned by the stub's `readOutput` (per-run). */
 let shellOutput = ''
 let shellLossy = false
 let shellSpillPath: string | undefined
+/** Terminal facts of the started process (per-run); default is a clean exit. */
+let shellStatus: 'completed' | 'killed' = 'completed'
+let shellExitCode: number | null = 0
+let shellSignal: NodeJS.Signals | null = null
+/**
+ * When true, `execute` stays pending until the passed signal aborts — the
+ * shape of a slow spawn/preparation, where `cancel` must still be able to
+ * stop the run before any process handle exists.
+ */
+let shellHoldUntilAbort = false
+/** How many times the started process was killed (per-run). */
+let shellKillCalls = 0
+/**
+ * When true, `execute` rejects instead of resolving. A confining executor
+ * rejects when preparation is aborted (the argv step throws after the abort),
+ * which is a different shape from a process that was spawned and killed.
+ */
+let shellRejectOnAbort = false
+
+/** Reset every per-run knob so tests cannot leak state into each other. */
+function resetShell(): void {
+  shellRequests.length = 0
+  shellOutput = ''
+  shellLossy = false
+  shellSpillPath = undefined
+  shellStatus = 'completed'
+  shellExitCode = 0
+  shellSignal = null
+  shellHoldUntilAbort = false
+  shellKillCalls = 0
+  shellRejectOnAbort = false
+}
+
+/** The live handle the stub's `execute` publishes once (or after) it starts. */
+function startedProcess() {
+  return {
+    status: shellStatus,
+    exitCode: shellExitCode,
+    signal: shellSignal,
+    done: Promise.resolve(),
+    readOutput: () => ({
+      delta: shellOutput,
+      lossy: shellLossy,
+      ...(shellSpillPath !== undefined ? { stdoutSpillPath: shellSpillPath } : {}),
+    }),
+    kill: () => {
+      shellKillCalls += 1
+      return true
+    },
+  }
+}
+
 const stubShell = {
   resolve: (request: ShellRequest) => {
     shellRequests.push(request)
@@ -90,23 +144,31 @@ const stubShell = {
       workdir: request.workdir ?? '',
       timeoutMs: 0,
       stdoutMaxBytes: 0,
+      onExpiry: request.onExpiry ?? 'kill',
+      ...(request.signal !== undefined ? { signal: request.signal } : {}),
       sandboxPolicy: request.sandboxPolicy,
     }
   },
   // 0.1.7: `execute` replaced `start` and resolves with the live handle.
-  execute: () =>
-    Promise.resolve({
-      status: 'completed' as const,
-      exitCode: 0,
-      signal: null,
-      done: Promise.resolve(),
-      readOutput: () => ({
-        delta: shellOutput,
-        lossy: shellLossy,
-        ...(shellSpillPath !== undefined ? { stdoutSpillPath: shellSpillPath } : {}),
-      }),
-      kill: () => true,
-    }),
+  execute: (spec: { signal?: AbortSignal } = {}) => {
+    if (!shellHoldUntilAbort) return Promise.resolve(startedProcess())
+    return new Promise((resolve, reject) => {
+      const signal = spec.signal
+      if (signal === undefined || signal.aborted) {
+        if (shellRejectOnAbort) reject(new Error('preparation aborted'))
+        else resolve(startedProcess())
+        return
+      }
+      signal.addEventListener(
+        'abort',
+        () => {
+          if (shellRejectOnAbort) reject(new Error('preparation aborted'))
+          else resolve(startedProcess())
+        },
+        { once: true },
+      )
+    })
+  },
 }
 
 function commandTask(): TaskRecord {
@@ -160,10 +222,7 @@ describe('runCommandTask', () => {
       settled.cause = event.cause
     })
 
-    shellRequests.length = 0
-    shellOutput = ''
-    shellLossy = false
-    shellSpillPath = undefined
+    resetShell()
     const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
     expect(id).toBe('task-1')
 
@@ -205,9 +264,8 @@ describe('runCommandTask', () => {
     // before a job resolves its live owner.
     await tick()
     ctx.provide('shell', stubShell)
+    resetShell()
     shellOutput = 'ignored output'
-    shellLossy = false
-    shellSpillPath = undefined
 
     const task = commandTask()
     task.notifyLlm = false
@@ -231,9 +289,8 @@ describe('runCommandTask', () => {
     // before a job resolves its live owner.
     await tick()
     ctx.provide('shell', stubShell)
+    resetShell()
     shellOutput = 'hello\nworld\n'
-    shellLossy = false
-    shellSpillPath = undefined
 
     runCommandTask(ctx, commandTask(), agent, 'D:\\work')
 
@@ -268,9 +325,7 @@ describe('runCommandTask', () => {
     ctx.agents.register(agent)
     await tick()
     ctx.provide('shell', stubShell)
-    shellOutput = ''
-    shellLossy = false
-    shellSpillPath = undefined
+    resetShell()
 
     runCommandTask(ctx, commandTask(), agent, 'D:\\work')
 
@@ -303,6 +358,7 @@ describe('runCommandTask', () => {
     // before a job resolves its live owner.
     await tick()
     ctx.provide('shell', stubShell)
+    resetShell()
     shellOutput = 'tail of the long output'
     shellLossy = true
     shellSpillPath = 'D:\\tmp\\task-stdout.spill'
@@ -324,5 +380,120 @@ describe('runCommandTask', () => {
     expect(read.result).toBe(
       'tail of the long output\n[Output truncated; read D:\\tmp\\task-stdout.spill for full output]',
     )
+  })
+
+  it("runs with onExpiry 'none' and a job-owned signal, so no deadline kills a background task", async () => {
+    // A background job must never be bounded by the executor's own deadline:
+    // `PwshLocalExecutor.resolve` defaults `onExpiry` to 'kill' and `timeoutMs`
+    // to 120s, which silently killed any command task running longer than two
+    // minutes (observed in the wild as `[status: killed]` with no detail). The
+    // official background tools pass `onExpiry: 'none'` for the same reason.
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    await tick()
+    ctx.provide('shell', stubShell)
+    resetShell()
+
+    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    await tick()
+    await tick()
+
+    expect(shellRequests[0]?.onExpiry).toBe('none')
+    // The job owns an abort signal: that is the only way `cancel` can stop a
+    // run whose process does not exist yet (a slow spawn/preparation).
+    expect(shellRequests[0]?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('reports how a killed command ended instead of dropping the cause', async () => {
+    // `{ status: 'killed' }` with no detail made a deadline kill, a user
+    // `job_kill`, and an owner teardown indistinguishable in the transcript.
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    await tick()
+    ctx.provide('shell', stubShell)
+    resetShell()
+    shellStatus = 'killed'
+    shellExitCode = null
+    shellSignal = 'SIGTERM'
+
+    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    await tick()
+    await tick()
+
+    const snapshot = ctx.jobs.get('task-1' as JobId, agent.id)
+    expect(snapshot.status).toBe('killed')
+    expect(snapshot.detail).toBe('signal: SIGTERM')
+  })
+
+  it('kills the run through the job signal while the process is still starting', async () => {
+    // `cancel` used to be a no-op until `execute` resolved, so a kill request
+    // that arrived during spawn/preparation did nothing at all.
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    await tick()
+    ctx.provide('shell', stubShell)
+    resetShell()
+    shellHoldUntilAbort = true
+    shellStatus = 'killed'
+    shellExitCode = null
+
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    const signal = shellRequests[0]?.signal
+    expect(signal?.aborted).toBe(false)
+
+    ctx.jobs.kill(id, agent.id, 'user stopped it')
+
+    // The run is stopped by the job's own signal, before any handle existed.
+    expect(signal?.aborted).toBe(true)
+    await tick()
+    await tick()
+    const snapshot = ctx.jobs.get(id, agent.id)
+    expect(snapshot.status).toBe('killed')
+    // jobs-local appends the kill reason itself; the detail must not echo it.
+    expect(snapshot.detail).toBe('user stopped it')
+    // Killed during preparation: the signal is the only stop path that exists
+    // at that moment, and the handle that materialises afterwards is killed
+    // too, so no process is left orphaned.
+    expect(shellKillCalls).toBe(1)
+  })
+
+  it("reports a preparation abort as 'killed', not a failure", async () => {
+    // A confining executor rejects the spawn promise when preparation is
+    // aborted, so `execute` itself rejects. The official background tool maps
+    // exactly this shape to `killed` (`processJob`: `controller.signal.aborted
+    // && process === undefined ? 'killed' : 'failed'`); a user-requested stop
+    // must not be reported as a crash.
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('test-controller')
+    const agent = stubAgent(ctx, 'session-test')
+    ctx.agents.register(agent)
+    await tick()
+    ctx.provide('shell', stubShell)
+    resetShell()
+    shellHoldUntilAbort = true
+    shellRejectOnAbort = true
+
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    ctx.jobs.kill(id, agent.id, 'user stopped it')
+
+    await tick()
+    await tick()
+    const snapshot = ctx.jobs.get(id, agent.id)
+    expect(snapshot.status).toBe('killed')
+    expect(snapshot.detail).toBe('user stopped it')
   })
 })

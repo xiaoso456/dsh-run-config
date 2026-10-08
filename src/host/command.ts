@@ -101,9 +101,24 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
       // writes to the server's own cwd, denying any file effect in the run
       // directory (e.g. `echo ok > marker.txt` fails with exit 1).
       const policy = ctx.get('sandboxPolicy')?.resolve({ session: agent.session })
+      // A background job must not be bounded by the executor's own deadline.
+      // `resolve` defaults `onExpiry` to 'kill' with a 120s `timeoutMs` (see
+      // PwshLocalExecutor/LocalBashExecutor), which silently killed any command
+      // task running longer than two minutes — reported as a bare
+      // `[status: killed]` with no explanation. The official background tools
+      // pass `onExpiry: 'none'` for exactly this reason; the job's own
+      // lifecycle (cancel, owner disposal, service teardown) is what stops it.
+      //
+      // The job-owned `signal` is the other half: `cancel` can only reach a
+      // live handle, so a kill arriving during a slow spawn/preparation would
+      // otherwise be lost. Passing controller.signal lets the executor abort
+      // preparation as well (the same shape the official tools use).
+      const controller = new AbortController()
       const spec = shell.resolve({
         command,
         workdir: cwd,
+        onExpiry: 'none',
+        signal: controller.signal,
         ...(policy === undefined
           ? {}
           : { sandboxPolicy: { mode: policy.mode, workspaceRoot: cwd } }),
@@ -114,17 +129,34 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
       // starter, i.e. after the registry's admission preflight.
       let killedReason: string | undefined
       let live: ShellExecution | undefined
-      const spawned = shell.execute(spec).then((proc) => {
-        live = proc
-        if (killedReason !== undefined) proc.kill()
-        return proc
-      })
+      const spawned = shell.execute(spec).then(
+        (proc) => {
+          live = proc
+          if (killedReason !== undefined) proc.kill()
+          return proc
+        },
+        (error: unknown) => {
+          // A confining executor rejects when preparation is aborted (the argv
+          // step throws after the abort) — a user-requested stop, not a crash.
+          // The official background tool maps exactly this shape to `killed`
+          // (`processJob`: `controller.signal.aborted && process === undefined`).
+          if (controller.signal.aborted) return undefined
+          throw error
+        },
+      )
       return {
         cancel: (reason?: string) => {
           killedReason = reason
+          // Abort preparation (no handle exists yet) *and* stop a live process.
+          controller.abort(reason)
           live?.kill()
         },
         done: spawned.then(async (proc) => {
+          if (proc === undefined) {
+            // Preparation was aborted before any process existed. `detail` is
+            // left to the registry, which appends the job's kill reason.
+            return { status: 'killed' as const }
+          }
           await proc.done
           const exitCode = proc.exitCode
           // One final read collects the whole stdout+stderr delta (buffered
@@ -148,7 +180,21 @@ export function runCommandTask(ctx: Context, task: TaskRecord, agent: Agent, cwd
               ...(output.length > 0 ? { result: output } : {}),
             }
           }
-          if (proc.status === 'killed') return { status: 'killed' as const }
+          if (proc.status === 'killed') {
+            // Keep the cause: without it a deadline kill, a user `job_kill`,
+            // and an owner teardown all read as a bare `[status: killed]`.
+            // `killedReason` is deliberately NOT echoed here — the registry
+            // appends the job's own kill reason to `detail` on settlement
+            // (`dsh-jobs-local` killJob → detail `${detail}; ${killReason}`),
+            // so repeating it would duplicate the text.
+            const cause =
+              killedReason === undefined
+                ? proc.signal !== null
+                  ? `signal: ${proc.signal}`
+                  : 'killed before exit'
+                : undefined
+            return { status: 'killed' as const, ...(cause === undefined ? {} : { detail: cause }) }
+          }
           return {
             status: 'failed' as const,
             ...(exitCode !== null ? { detail: `exit code: ${exitCode}` } : {}),
