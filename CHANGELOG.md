@@ -5,9 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-> 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.2 → dsh 0.2.0-rc.2**、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
+> 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.3 → dsh 0.2.0-rc.2**（与 0.2.2 同线）、0.2.2 → dsh 0.2.0-rc.2、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
 
-## [Unreleased]
+## [0.2.3] - 2026-10-09
+
+### Added
+
+- **插件图标与 README 词标（品牌资产）**：`assets/` 新增插件页图标 `icon.webp`（448、圆角 104、WebP 无损，由 1254² 母版按黄金比例裁框而来，205 KiB）、README 头图 `icon-full.webp`（整幅不裁）与词标 `wordmark.png`（Jua 400，三色 `#4d6bfe` / `#37b3cb` / `#e0a93f`）。`package.json` 顶层 `icon` 指向 `assets/icon.webp`，`files` 同时收进 `icon-full.webp` 与 `wordmark.png`——README 引用了它们，不进包则 npm 包页面上的两张图会 404。两份 1254² 母版（`icon-source.png` / `icon-art.png`）入库但不进包
+- **两版 README 的居中排头**：开头改为居中「`icon-full.webp`（宽 140）+ `wordmark.png`（宽 360）」并去掉 H1，正文不变；中英两版同步
 
 ### Fixed
 
@@ -29,7 +34,7 @@
 - e2e 验收套件（13 个 `cdp-*.mjs`，每脚本独立 profile + 独立调试端口）：**10 PASS / 1 SKIP（按设计）/ 2 FAIL**，两个 FAIL 均已定位为非插件回归——`cdp-header-order` 单独重跑 PASS（抖动）；`cdp-pwsh` 为上述侧边栏时序缺陷，修复后连跑 PASS
 - 自测：`tsc --noEmit` 0 诊断 · **139 单测全过**（`command-runner.spec.ts` 5→9 条；新增 `hero-run` 7 / `task-write-boundary` 6 / `locale-report` 3）· `biome check` 0 error · `tsdown` 0 · `build:types` 0
 - 环境提示：本机 `workspace-write` 模式下无可用沙箱后端，命令任务会以 `[status: failed, exit code: 127]` 失败（看着像命令不存在，实为沙箱拒绝运行）；真机跑命令任务请用 `DSH_PERMISSION_MODE=danger-full-access`
-- **未发布图标**：`icon.png` 已从 `package.json`（manifest `icon` 字段、`./icon` 导出、`files`）与 `.gitignore` 中排除。实测发现已安装的 dsh 0.2.0-rc.2 的 `iconOf` **只认 `package.json` 顶层 `icon` 字段**，没有 `${specifier}/icon` 导出的解析路径（后者是 0.2.1-alpha 之后才加的），故单加导出在现运行时无效；将来要发布图标需同时保留两者并用官方 `readPluginMeta` 实测
+- **插件图标的接线方式与硬约束**：图标经 `package.json` **顶层 `icon`** 字段发布——实测已安装的 dsh 0.2.0-rc.2 的 `iconOf` 只认该字段，没有 `${specifier}/icon` 导出的解析路径（后者是 0.2.1-alpha 之后才加的），故只加导出在现运行时无效。约束是硬的：相对路径、realpath 后必须留在包目录内、普通文件、≤256 KiB，**违反任一条会直接抛错**并在插件页显示 metadata error（不是静默回落到默认图标）。旧版根目录 `icon.png` 已无任何引用（仍在 `.gitignore` 中）
 
 
 ## [0.2.2] - 2026-09-29
