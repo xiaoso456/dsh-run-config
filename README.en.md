@@ -1,6 +1,13 @@
-# dsh-run-config — Run Configuration Management for DeepSeek Harness
+<div align="center">
+  <img width="140" src="./assets/icon-full.webp" alt="dsh-run-config icon"><br>
+  <img width="360" src="./assets/wordmark.png" alt="dsh-run-config">
+</div>
+
+<div align="center">
 
 English | [中文](README.md)
+
+</div>
 
 Run configuration management for the DeepSeek Harness Web: like an IDE, save frequently used
 LLM prompts and shell commands as "task run configurations" and launch them

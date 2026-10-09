@@ -1,6 +1,13 @@
-# dsh-run-config — DeepSeek Harness 运行配置管理
+<div align="center">
+  <img width="140" src="./assets/icon-full.webp" alt="dsh-run-config 图标"><br>
+  <img width="360" src="./assets/wordmark.png" alt="dsh-run-config">
+</div>
+
+<div align="center">
 
 [English](README.en.md) | 中文
+
+</div>
 
 DeepSeek Harness Web 的运行配置管理：像 IDE 一样，把常用的 LLM 提示词和 Shell 命令保存为"任务运行配置"，在会话页和新会话页一键运行。
 
