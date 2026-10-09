@@ -14,7 +14,7 @@ review.md
 scan-notes.md
 .workflow-one/
 dsh-image-gen/
-refs-game-icons/
+refs-*/
 tmp-icon-preview/
 # Release notes are authored in the CHANGELOG; no per-version scratch files.
 .release-notes-*.md
