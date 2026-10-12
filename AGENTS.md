@@ -35,6 +35,42 @@ Standard verification after any code change: typecheck → test → lint → bui
 - Acceptance screenshots are not committed (`tests/screenshots/` is ignored).
 - `tests/external/` is the external-dependency lane: a local mock LLM provider plus an orchestrator that serves the two agent-driven CDP scripts from it instead of the developer's real provider account — start there (`tests/external/README.md`) before re-running `cdp-llm-run.mjs` / `cdp-pwsh.mjs` on a machine whose model quota is exhausted.
 
+## e2e lane (`e2e/`)
+
+A second, higher-level acceptance lane on [tester-army/e2e](https://github.com/tester-army/e2e) (`e2e` + `@e2e-dev/web`, in root `devDependencies`). Where the `cdp-*.mjs` scripts assert by hand and report only an exit code, this lane lets an **agent** find and operate the controls and checks the result with ordinary locators — so a renamed button does not break a test, and a passing run is backed by a video.
+
+```bash
+pnpm test:e2e                              # build, then run the whole suite
+npx e2e run --config e2e/e2e.config.ts tests/03-agent-runs-command.e2e.ts   # one file
+npx e2e list --config e2e/e2e.config.ts    # collect without running
+```
+
+Everything lives under `e2e/` — the config's directory is the e2e project root, so `e2e.config.ts`, `tests/`, and `.e2e/` are all relative to it. Do not move the config to the repository root: the lane is deliberately outside the plugin's own `tsconfig`/`biome`/`vitest` scope, and `e2e/tsconfig.json` typechecks it separately.
+
+**Setup.** `cp e2e/.env.example e2e/.env` and fill in the model. `.env` and `.env.local` are both gitignored. Any OpenAI-compatible endpoint works; the values are written for Ollama Cloud. A local Ollama needs `http://localhost:11434/v1`, **not** `.../api/chat` (that is Ollama's native protocol). The lane also needs the global dsh CLI and the `dsh-task-runner` profile at `$DSH_HOME/profiles/dsh-task-runner` — `e2e/launch-dsh.mjs` fails with a clear message when either is missing.
+
+**How a run is isolated.** `launch-dsh.mjs` starts a private instance on the free port e2e picked (`app.url` port 0 → `{port}` in `command.args`), with:
+
+- a scratch `DSH_HOME` under `e2e/.e2e/`, recreated every start, so no session, storage, or credential of the developer's is read or written;
+- a junction `profiles/dsh-task-runner` → the real profile (this is what loads the plugin under test, via that profile's `link:` to this checkout);
+- a junction `<home>/documents/deepseek-harness/default-workspace` → this repository, so a session's working directory is the checkout;
+- `--patch e2e/dsh.patch.yml`, a process-scoped overlay (nothing under `$DSH_HOME` is edited). It pins `workspace-controller`'s `documentsDirectory` into the private home, turns off `ui-settings-models`' `credentialOnboarding` (the first-run "Add an API key" modal sets `#root.inert` and blocks every interaction), and points `llm-deepseek` + `agent-default-model` at the configured endpoint;
+- `DSH_PERMISSION_MODE=danger-full-access`. The win32 ACL sandbox cannot grant write inside this checkout, so a command task fails silently — as exit code 127 — without it.
+
+**Two things about the model endpoint.** e2e's client appends `/chat/completions` and wants `.../v1`; the instance's `llm-deepseek` provider speaks Anthropic, appends `/v1/messages` itself, and needs the `/v1` stripped. `launch-dsh.mjs` does that conversion. e2e also spawns `app.command` with an **allowlisted** environment (PATH, HOME, TMPDIR, TMP, TEMP, SystemRoot, COMSPEC), so the `.env` values are passed explicitly through `command.env` in `e2e.config.ts` — adding a variable to `.env` alone will not reach the launcher.
+
+**Sign-in.** `tests/auth.setup.e2e.ts` exchanges the launch token for the session cookie and saves it as the `dsh` session. It must not fill a credential form: once a secret is filled, e2e withholds model pixels and assertion screenshots for the rest of that session and `app.screenshot()` becomes `POLICY_DENIED`, which would defeat the point of the lane.
+
+**Entering a session.** A fresh private home has no session with content, so the app sits on the hero page — and the session-header run control only exists inside a session. `helpers.ts`'s `enterSession` sends one message to create one (clicking a sidebar row does not navigate on this build). This is plumbing, not the thing under test.
+
+**Writes.** Tests seed state over the plugin's real RPC (`helpers.ts`'s `rpc`/`createTask`) rather than through the dialog, and `afterEach` deletes what they made. The one file effect, in `03-agent-runs-command.e2e.ts`, writes a marker under `e2e/.e2e/`.
+
+**The replay cache is the point.** Each verified `agent.act` is recorded, so the next run replays it with no model call; when a control or the end state no longer matches, the agent takes over, re-does the step, and re-records it. A test therefore survives the UI changing. The cache lives in `e2e/.e2e/cache/` and is **not committed**, so a fresh clone pays for the model once while it records. `workers`, `retries`, and `cache` are pinned in the config rather than left to e2e's CI detection: this shell carries `CI=true`, which would otherwise demote the cache to read-only and stop it recording at all.
+
+**Output.** `e2e/.e2e/` (gitignored): `results/<test>/attempt-1/video/video.webm` for every attempt (`video: 'on'`), `screenshots/*.png` only where a test calls `app.screenshot()` (failures always get one), `results/<test>/trace.md` for the step-by-step record, and `report.json` for everything. `results/` is **wiped at the start of every run**, so an earlier run's videos are gone unless copied out first.
+
+**Reading a run.** `trace.md` lists what happened — each action and each assertion, in order, with the model's taps and the screen changes. It carries no "expected result" column: the expectation lives in the test's own `expect(...)` call, next to the `agent.act` it follows. On a failure the report's error carries `details.expected` / `details.actual`.
+
 ## Icon & wordmark
 
 `assets/` holds the README header art and the plugin icon; `package.json` `icon` points at `assets/icon.webp`. That path must stay relative and inside the package directory, be a regular file, and stay under 256 KiB — otherwise the host **throws** and the plugin shows a metadata error instead of falling back to a default icon. The generator is a one-off script and is not committed.

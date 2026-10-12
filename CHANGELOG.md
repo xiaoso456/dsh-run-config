@@ -7,6 +7,12 @@
 
 > 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.3 → dsh 0.2.0-rc.2**（与 0.2.2 同线）、0.2.2 → dsh 0.2.0-rc.2、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
 
+## [Unreleased]
+
+### Added
+
+- **e2e 验收通道（`e2e/`）**：引入 [tester-army/e2e](https://github.com/tester-army/e2e)（`e2e` + `@e2e-dev/web`，装在根 `devDependencies`），补上 `cdp-*.mjs` 之外的第二条验收线——由**模型驱动界面**、用普通定位器断言结果，因此改个按钮文案不会让用例失效，且每次运行都留下操作视频。全部收敛在 `e2e/` 一个目录（config / tests / `.e2e/` 产物 / 私有 DSH_HOME），不进入插件自身的 `tsconfig`、`biome`、`vitest` 作用域。跑法 `pnpm test:e2e`；模型与密钥填 `e2e/.env`（已忽略）。现有 6 条用例：登录 setup、头部控件注册、应用壳渲染、模型开弹窗、模型建命令配置、模型运行命令任务并断言 shell 真的执行。详见 `AGENTS.md` 的「e2e lane」一节
+
 ## [0.2.3] - 2026-10-09
 
 ### Added
