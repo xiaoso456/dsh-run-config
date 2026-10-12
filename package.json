@@ -139,7 +139,11 @@
     "react-dom": "^18.3.1",
     "tsdown": "^0.22.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "@ai-sdk/openai-compatible": "^3.0.67",
+    "@e2e-dev/web": "0.14.0",
+    "ai": "^7.0.137",
+    "e2e": "0.19.0"
   },
   "scripts": {
     "build": "tsdown",
@@ -149,6 +153,7 @@
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "pnpm run build && e2e run --config e2e/e2e.config.ts",
     "lint": "biome check .",
     "format": "biome check --write ."
   }

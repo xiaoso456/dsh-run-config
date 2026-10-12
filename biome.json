@@ -10,6 +10,7 @@
     "includes": [
       "src/**",
       "tests/**",
+      "e2e/**",
       "*.json",
       "!**/.dsh-meow",
       "!**/lib",

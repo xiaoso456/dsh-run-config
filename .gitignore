@@ -15,8 +15,17 @@ scan-notes.md
 .workflow-one/
 dsh-image-gen/
 refs-*/
+# Upstream reference clones (shallow, never committed).
+refs/
 tmp-icon-preview/
 # Release notes are authored in the CHANGELOG; no per-version scratch files.
 .release-notes-*.md
 # Plugin icon is not shipped yet (work in progress).
 icon.png
+# e2e lane: the local model/key file, the private harness home it starts, and
+# every run artifact. The lane's own sources under `e2e/` ARE committed.
+# Both names are ignored: `.env.local` is the documented one, but a plain
+# `.env` here would hold the same secret, and committing it would leak the key.
+e2e/.env
+e2e/.env.local
+e2e/.e2e/

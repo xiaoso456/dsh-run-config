@@ -1,0 +1,71 @@
+# Test-only dsh profile overlay for the e2e lane.
+#
+# Passed to the launcher as `--patch`, never written into the profile:
+#
+#   node <dsh>/lib/bin.js --profile dsh-task-runner \
+#     --patch e2e-dsh.patch.yml --port <port> --no-open
+#
+# `--patch <path>` is process-scoped ("extra patch-list overlay applied after
+# the profile layer"), so nothing under `$DSH_HOME` is created, edited or
+# backed up by loading this file.
+#
+# Two things this lane needs that the developer's own profile does not:
+
+# 1. Keep the first-use Workspace inside the private home.
+#
+# The harness otherwise creates (and registers) its first-use workspace under
+# the real user Documents directory, which would put the session's working
+# directory outside this repository and make the lane read the developer's own
+# workspace registry. `launch-dsh.mjs` creates a junction at
+# `<private home>/documents/deepseek-harness/default-workspace` pointing back at
+# this checkout, so pinning the documents root here keeps everything local.
+- id: workspace-controller
+  name: '@deepseek-ai/dsh-api-workspace-controller'
+  config:
+    documentsDirectory: '__DOCUMENTS__'
+
+# 2. Suppress the first-run "Add an API key to get started" modal.
+#
+# A fresh home has no credentials, so the models page reports
+# `credential-missing` readiness and mounts its onboarding dialog. That dialog
+# sets `#root.inert = true` and ignores Escape, so it covers the UI and blocks
+# every interaction — the lane cannot test the plugin behind it. The dialog is
+# a client-side feature of this plugin and the setting below is its documented
+# switch (`credentialOnboarding: z.boolean().default(true)`), so turning it off
+# removes the gate rather than dismissing it after the fact.
+- id: ui-settings-models
+  name: '@deepseek-ai/dsh-client-ui-settings-models'
+  config:
+    credentialOnboarding: false
+
+# 3. Give the instance a working model.
+#
+# A private home holds no credentials, so the instance's own agent turns fail
+# with `no API key for provider route "deepseek-official"`. That matters because
+# opening a session requires sending one message: the app sits on the hero page
+# until a session has content, and the session-header run control — the thing
+# this lane exists to test — only renders inside a session.
+#
+# `baseURL` re-points the provider and `apiKeyEnv` names the variable holding
+# the key, so the key itself never appears in this committed file. The launcher
+# passes it from `e2e/.env`, which is gitignored.
+#
+# `apiKeyEnv` rather than an inline key also keeps the real `DEEPSEEK_API_KEY`
+# out of the picture entirely: the instance resolves only the variable named
+# here, so this lane can never spend the developer's own account.
+#
+# `agent-default-model` is re-pointed too. The profile's default is
+# `deepseek-flash`, which the instance's provider route would have to serve;
+# naming the same model the lane already configured keeps the instance's own
+# agent turns working against whatever endpoint `__LLM_BASE_URL__` is.
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+  config:
+    baseURL: '__LLM_BASE_URL__'
+    apiKeyEnv: E2E_DSH_API_KEY
+
+- id: agent-default-model
+  name: '@deepseek-ai/dsh-agent-default-model'
+  config:
+    provider: deepseek-official
+    model: '__LLM_MODEL__'
