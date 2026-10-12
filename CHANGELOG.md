@@ -11,7 +11,7 @@
 
 ### Added
 
-- **e2e 验收通道（`e2e/`）**：引入 [tester-army/e2e](https://github.com/tester-army/e2e)（`e2e` + `@e2e-dev/web`，装在根 `devDependencies`），补上 `cdp-*.mjs` 之外的第二条验收线——由**模型驱动界面**、用普通定位器断言结果，因此改个按钮文案不会让用例失效，且每次运行都留下操作视频。全部收敛在 `e2e/` 一个目录（config / tests / `.e2e/` 产物 / 私有 DSH_HOME），不进入插件自身的 `tsconfig`、`biome`、`vitest` 作用域。跑法 `pnpm test:e2e`；模型与密钥填 `e2e/.env`（已忽略）。现有 10 条用例：登录 setup、头部控件注册、应用壳渲染、hero 只列 LLM 配置（确定性，零模型调用）、模型开弹窗、模型建命令配置、模型运行命令任务并断言 shell 真的执行、模型复制与删除配置、模型重命名已有配置、模型运行 LLM 配置并断言 prompt 落入输入框。详见 `AGENTS.md` 的「e2e lane」一节
+- **e2e 验收通道（`e2e/`）**：引入 [tester-army/e2e](https://github.com/tester-army/e2e)（`e2e` + `@e2e-dev/web`，装在根 `devDependencies`），补上 `cdp-*.mjs` 之外的第二条验收线——由**模型驱动界面**、用普通定位器断言结果，因此改个按钮文案不会让用例失效，且每次运行都留下操作视频。全部收敛在 `e2e/` 一个目录（config / tests / `.e2e/` 产物 / 私有 DSH_HOME），不进入插件自身的 `tsconfig`、`biome`、`vitest` 作用域。跑法 `pnpm test:e2e`；模型与密钥填 `e2e/.env`（已忽略）。现有 12 条用例：登录 setup、头部控件注册、应用壳渲染、hero 只列 LLM 配置（确定性）、组内拖拽排序且跨组拖拽被忽略（确定性）、会话头部隐藏其他工作区的配置（确定性）、模型开弹窗、模型建命令配置、模型运行命令任务并断言 shell 真的执行、模型复制与删除配置、模型重命名已有配置、模型运行 LLM 配置并断言 prompt 落入输入框。详见 `AGENTS.md` 的「e2e lane」一节
 
 ## [0.2.3] - 2026-10-09
 
