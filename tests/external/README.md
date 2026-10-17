@@ -167,6 +167,17 @@ private home per run cannot reach the profile or the checkout.
   pins that workspace (`workspace-controller` → `documentsDirectory`) into its
   private home as a junction onto the repository, which makes the script's own
   premise true again. **The script's assertions are not touched.**
+* **`DSH_SESSION_WORKSPACE`** (optional, `tests/cdp-pwsh.mjs`). Outside this
+  lane the session's own workspace need not be the checkout, and the script
+  cannot read that path off the page. When the session cwd is elsewhere, set
+  `DSH_SESSION_WORKSPACE` to it and the probe is looked for there; when it is
+  unset the probe is looked for at the repository root — exactly this lane's
+  pinned-workspace condition. Like `DSH_BASE`, it injects a condition of the
+  run, never an assertion: the file's content is still asserted verbatim.
+  Measured on this host (2026-10-17, profile `dsh-task-runner` on port 3190):
+  the session workspace was `D:\code\pi-gateway-project\dsh-bash-plus`, so the
+  default repo-root path reported `fileFound:false` while the probe file sat in
+  the session workspace.
 
 ## How to prove the run had zero external dependency
 

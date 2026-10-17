@@ -11,6 +11,7 @@
  * Self-cleaning: the probe configuration is deleted in `finally`.
  */
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
+import { openHeroTaskMenu } from './lib/hero-picker.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
@@ -135,33 +136,14 @@ async function main() {
     }
     if (!booted) throw new Error('the page never booted')
 
-    let pickerReady = false
-    for (let attempt = 0; attempt < 6 && !pickerReady; attempt += 1) {
-      await evaluate(`(() => {
-        const row = document.querySelector('[class*="heroWorkspaceRow"]')
-        if (row !== null) return true
-        const button = [...document.querySelectorAll('button')].find(b => /新会话|New session/.test(b.innerText))
-        if (button) button.click()
-        return true
-      })()`)
-      for (let i = 0; i < 8 && !pickerReady; i += 1) {
-        await sleep(500)
-        pickerReady = await evaluate(`(() => {
-          const row = document.querySelector('[class*="heroWorkspaceRow"]')
-          if (row === null) return false
-          const picker = [...row.querySelectorAll('button[aria-expanded]')][1]
-          return picker !== undefined && picker.innerText.trim().length > 0
-        })()`)
-      }
+    // The wait for the hero row and the click on its picker segment happen in
+    // one page turn inside the helper: a fixed sleep between them let the app's
+    // session restore unmount the row, and the dereference below then threw
+    // `TypeError: Cannot read properties of null (reading 'querySelectorAll')`.
+    const menuOpened = await openHeroTaskMenu(evaluate)
+    if (menuOpened.ok !== true) {
+      throw new Error(`the hero task picker could not be opened: ${menuOpened.reason}`)
     }
-    if (!pickerReady) throw new Error('the hero task picker never appeared')
-    await sleep(1500)
-
-    await evaluate(`(() => {
-      const row = document.querySelector('[class*="heroWorkspaceRow"]')
-      row.querySelectorAll('button[aria-expanded]')[1].click()
-      return true
-    })()`)
     for (let i = 0; i < 16; i += 1) {
       await sleep(250)
       if (await evaluate(`document.querySelectorAll('[role="menu"]').length > 0`)) break

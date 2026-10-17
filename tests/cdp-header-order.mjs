@@ -4,9 +4,11 @@
  * registered there with an order below the official entries). Sequence:
  *  1. load the page; if it restores a session, verify directly;
  *  2. otherwise enter a session through the sidebar session list;
- *  3. assert the run control's box lies within the utilities cluster's box and
- *     that its vertical centre matches a neighbouring header control. */
+ *  3. assert the run control's box lies within the utilities cluster's box,
+ *     that its vertical centre matches a neighbouring header control, and
+ *     that it carries no own leading margin (the cluster owns the gaps). */
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
+import { controlMarginProbe } from './lib/hero-picker.mjs'
 import { authenticatedUrl } from './lib/web-session.mjs'
 
 const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
@@ -150,6 +152,11 @@ async function main() {
         neighborCount: others.length,
       }
     })()`)
+    // The headerUtilities container owns the spacing between its items (it is
+    // a flex line with an 8px gap). The control used to add its own
+    // `margin-left: 4px`, which put it 12px from its predecessor while the
+    // official neighbour after it kept 8px. Assert there is no own margin.
+    results.controlMarginLeft = await evaluate(controlMarginProbe())
   }
 
   console.log('=== HEADER ORDER ===')
@@ -162,6 +169,7 @@ async function main() {
     results.inSession === true &&
     results.positions?.withinUtilities === true &&
     results.positions?.sameRow === true &&
+    results.controlMarginLeft === '0px' &&
     consoleErrors.length === 0
   process.exit(pass ? 0 : 1)
 }

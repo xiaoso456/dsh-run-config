@@ -6,12 +6,14 @@
  * workspace"). Sequence:
  *  1. load the page, wait for the run segment (aria-label="运行") to boot;
  *  2. assert the combo structure: picker segment (aria-expanded) sits in the
- *     same container as the run segment;
+ *     same container as the run segment, and the control sits at the host
+ *     row's own gap (no own `margin-left` on top of it);
  *  3. click the picker segment → the task menu appears (role=menu, footer
  *     "编辑配置…");
  *  4. hover the run segment → the tooltip bubble appears with the run hint;
  *  5. close the menu; report console errors. */
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
+import { controlSpacingProbe } from './lib/hero-picker.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
 const BASE = process.env.DSH_BASE ?? 'http://127.0.0.1:3190'
@@ -129,9 +131,17 @@ async function main() {
       runRightOfPick: runBox.left > pickBox.left,
       pickText: pick.innerText,
       runHasIconOnly: run.querySelectorAll('svg').length === 1 && run.innerText.trim() === '',
-      borderShared: getComputedStyle(combo).borderRadius !== '0px',
     }
   })()`)
+
+  // 1b. Spacing: the host row owns the gaps between its items, so the control
+  // must sit at the row's own gap. It used to carry `margin-left: 8px` on top
+  // of the row's 2px, which pushed it 10px from the workspace chip while the
+  // official neighbour after it kept 2px — the control read as detached. The
+  // old `borderShared` reading (container border-radius != 0) could never fail:
+  // the combo is intentionally flat (RunCombo.module.css), so it is replaced by
+  // this measurement of the actual gap.
+  results.spacing = await evaluate(controlSpacingProbe())
 
   // 2. Click the picker segment → task menu with the edit-config footer.
   await evaluate(`(() => {
@@ -217,6 +227,7 @@ async function main() {
     results.structure?.sameHeight === true &&
     results.structure?.runRightOfPick === true &&
     results.structure?.runHasIconOnly === true &&
+    results.spacing?.ok === true &&
     results.menu?.found === true &&
     results.menu?.hasFooter === true &&
     results.tooltip?.found === true &&

@@ -14,9 +14,13 @@
  * Endpoint injection: `DSH_BASE` selects the instance to drive (default
  * http://127.0.0.1:3190, the same variable `tests/lib/web-session.mjs` reads),
  * so the external-dependency lane can point this script at an instance whose
- * provider route is a local mock. Provider choice is NOT a parameter here: the
- * assertions stay exactly as they are and must hold under whichever endpoint
- * answers. */
+ * provider route is a local mock. Workspace injection: `DSH_SESSION_WORKSPACE`
+ * names the session's own workspace when it is not the repository root (the
+ * probe file lands there and the script has no way to read that path off the
+ * page); the external lane's pinned-workspace junction makes the default true.
+ * Provider and workspace are CONDITIONS of the run, never parameters of the
+ * assertions: both stay exactly as they are and must hold under whichever
+ * endpoint and cwd answer. */
 import { CDP_HTTP } from './lib/cdp-endpoint.mjs'
 import { authenticatedUrl, rpc } from './lib/web-session.mjs'
 
@@ -209,14 +213,25 @@ async function main() {
   // Wait for the probe file to appear in the session workspace (the command
   // runs with cwd = the session's workspace path).
   const { existsSync, readFileSync, rmSync } = await import('node:fs')
-  const { dirname, join } = await import('node:path')
+  const { dirname, join, resolve, isAbsolute } = await import('node:path')
   const { fileURLToPath } = await import('node:url')
   // The probe command has `scope: 'global'` (no workspacePath), so it runs with
-  // cwd = the session workspace, which the acceptance lane pins to this
-  // repository root. Derive that root from this file's own location instead of
-  // one machine's absolute path, so the script stays runnable from any checkout.
+  // cwd = the session workspace. This script cannot read that path off the
+  // page — the harness derives it when the session is created — so the cwd is a
+  // CONDITION of the run, and it is injected the same way as `DSH_BASE`:
+  // `DSH_SESSION_WORKSPACE` names the session's workspace for the current
+  // deployment. Without it the acceptance lane's pin (tests/external wires
+  // `<Documents>/deepseek-harness/default-workspace` as a junction onto this
+  // repository) makes the repository root true again.
   const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-  const probePath = join(REPO_ROOT, PROBE_FILE)
+  const workspaceRoot = process.env.DSH_SESSION_WORKSPACE
+    ? resolve(process.env.DSH_SESSION_WORKSPACE)
+    : REPO_ROOT
+  if (!isAbsolute(workspaceRoot) || !existsSync(workspaceRoot)) {
+    console.error(`[pwsh] DSH_SESSION_WORKSPACE is not a directory: ${workspaceRoot}`)
+    process.exit(1)
+  }
+  const probePath = join(workspaceRoot, PROBE_FILE)
   let fileFound = false
   let fileContent = ''
   for (let i = 0; i < 30; i++) {
@@ -233,6 +248,7 @@ async function main() {
     booted,
     inSession,
     taskName: TASK_NAME,
+    probePath,
     fileFound,
     fileContent,
   }
