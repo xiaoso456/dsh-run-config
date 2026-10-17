@@ -5,8 +5,8 @@
  * a run can point the scripts at a privately started headless Chrome when the
  * default port is occupied by an unrelated process:
  *
- *   DSH_CDP_HTTP=http://127.0.0.1:19222 node tests/cdp-refresh.mjs
- *   DSH_CDP_PORT=19222 node tests/cdp-refresh.mjs
+ *   DSH_CDP_HTTP=http://127.0.0.1:19222 node tests/cdp-combo.mjs
+ *   DSH_CDP_PORT=19222 node tests/cdp-combo.mjs
  *
  * DSH_CDP_HTTP wins when both are set; empty values count as unset.
  */
