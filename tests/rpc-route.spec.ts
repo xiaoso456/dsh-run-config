@@ -539,7 +539,10 @@ describe('tasks/run cwd priority (session cwd first, task workspace as fallback)
     )
     const result = await callRun(routes)
     expect(result.ok).toBe(true)
-    expect(result.value?.jobId).toBe('task-1')
+    // 0.2.1-rc.1: jobs-local mints the id itself (a random `task-<hex>`, no
+    // longer the old per-kind counter), so pin the plugin's own kind prefix
+    // instead of the registry's id format.
+    expect(result.value?.jobId).toMatch(/^task-/)
     await settle()
     // The command ran in the session's cwd, NOT in the task's bound workspace.
     expect(shellRequests[0]?.workdir).toBe('D:\\work\\session-cwd')

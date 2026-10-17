@@ -224,7 +224,10 @@ describe('runCommandTask', () => {
 
     resetShell()
     const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
-    expect(id).toBe('task-1')
+    // 0.2.1-rc.1: jobs-local mints the id itself — a random `task-<hex>` now,
+    // not the old per-kind counter — so pin the plugin's own kind prefix here
+    // and let the lookup below prove this is the job that was started.
+    expect(id).toMatch(/^task-/)
 
     // The shell request carries the session mode rooted at the run cwd.
     expect(shellRequests[0]?.sandboxPolicy).toEqual({
@@ -249,7 +252,7 @@ describe('runCommandTask', () => {
       content: { text: string }[]
     }
     expect(message.content[0]?.text).toBe(
-      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+      `User-started job ${id} (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.`,
     )
   })
 
@@ -292,7 +295,7 @@ describe('runCommandTask', () => {
     resetShell()
     shellOutput = 'hello\nworld\n'
 
-    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
 
     await tick()
     await tick()
@@ -303,11 +306,11 @@ describe('runCommandTask', () => {
       content: { text: string }[]
     }
     expect(message.content[0]?.text).toBe(
-      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+      `User-started job ${id} (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.`,
     )
-    const snapshot = ctx.jobs.get('task-1' as JobId, agent.id)
+    const snapshot = ctx.jobs.get(id, agent.id)
     expect(snapshot.outputLimitBytes).toBeUndefined()
-    const read = ctx.jobs.read('task-1' as JobId, agent.id)
+    const read = ctx.jobs.read(id, agent.id)
     // 0.1.7: a producer's outcome rides `JobRead.result` (the ring carries
     // streamed chunks; this job deliberately streams nothing).
     expect(read.result).toBe('hello\nworld\n')
@@ -327,7 +330,7 @@ describe('runCommandTask', () => {
     ctx.provide('shell', stubShell)
     resetShell()
 
-    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
 
     await tick()
     await tick()
@@ -340,7 +343,7 @@ describe('runCommandTask', () => {
     }
     // Same fixed English template as the idle branch: only the delivery differs.
     expect(message.content[0]?.text).toBe(
-      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+      `User-started job ${id} (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.`,
     )
     // Still the plugin's own notice source (never the tool-jobs shape).
     expect(message.source.kind).toBe('task-runner')
@@ -363,7 +366,7 @@ describe('runCommandTask', () => {
     shellLossy = true
     shellSpillPath = 'D:\\tmp\\task-stdout.spill'
 
-    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
 
     await tick()
     await tick()
@@ -374,9 +377,9 @@ describe('runCommandTask', () => {
       content: { text: string }[]
     }
     expect(message.content[0]?.text).toBe(
-      'User-started job task-1 (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.',
+      `User-started job ${id} (task: 发布检查) finished [status: completed, exit code: 0]. Read its output with job_output.`,
     )
-    const read = ctx.jobs.read('task-1' as JobId, agent.id)
+    const read = ctx.jobs.read(id, agent.id)
     expect(read.result).toBe(
       'tail of the long output\n[Output truncated; read D:\\tmp\\task-stdout.spill for full output]',
     )
@@ -424,11 +427,11 @@ describe('runCommandTask', () => {
     shellExitCode = null
     shellSignal = 'SIGTERM'
 
-    runCommandTask(ctx, commandTask(), agent, 'D:\\work')
+    const id = runCommandTask(ctx, commandTask(), agent, 'D:\\work')
     await tick()
     await tick()
 
-    const snapshot = ctx.jobs.get('task-1' as JobId, agent.id)
+    const snapshot = ctx.jobs.get(id, agent.id)
     expect(snapshot.status).toBe('killed')
     expect(snapshot.detail).toBe('signal: SIGTERM')
   })
