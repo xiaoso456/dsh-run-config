@@ -3,10 +3,15 @@
  *
  * The task picker + run segment are one connected pill (RunCombo.module.css);
  * this module only carries the row layout for the header utility slot.
+ *
+ * The slot's own flex container owns the spacing: `headerUtilities` is a flex
+ * line with an 8px gap (measured in 0.2.1-rc.1: the official control after
+ * this slot sits exactly 8px away). An own `margin-left` on top of that gap
+ * put this control 12px from its predecessor — wider than every official
+ * neighbour in the same cluster.
  */
 
 .control {
   display: inline-flex;
   align-items: center;
-  margin-left: 4px;
 }

@@ -2,13 +2,19 @@
  * Hero-page run control surface. The task picker + run segment are one
  * connected pill (RunCombo.module.css); this module only carries the row
  * layout, the workspace-add row, and its input.
+ *
+ * The row owns the spacing between its items: the official
+ * `heroWorkspaceRow` is a flex line with a uniform 2px gap (measured in
+ * 0.2.1-rc.1: the preset control that follows this slot sits exactly 2px
+ * away). An own `margin-left` on top of that gap put this control 10px from
+ * the workspace chip while every official neighbour kept 2px — the run
+ * control read as detached from the row it belongs to.
  */
 
 .control {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
 }
 
 /* See RunCombo.module.css: at ≤640px the official hero row has no slack for a
