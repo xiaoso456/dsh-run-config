@@ -15,7 +15,7 @@ pnpm build:types # clears lib/types, then tsc -p tsconfig.build.json → lib/typ
 
 On Windows `pnpm` is a `pnpm.cmd` shim, so every `pnpm <script>` spawns a visible `cmd.exe` window. When a flashing console is unacceptable, run the tools' JS entry points directly (no shim, same result): `node node_modules/typescript/bin/tsc --noEmit`, `node node_modules/vitest/vitest.mjs run`, `node node_modules/@biomejs/biome/bin/biome check .`, `node node_modules/tsdown/dist/run.mjs`. The same rule applies to `powershell` — never drive anything through it.
 
-Standard verification after any code change: typecheck → test → lint → build → build:types → start the test instance → run the relevant `tests/cdp-*.mjs` browser acceptance scripts.
+Standard verification after any code change: typecheck → test → lint → build → build:types → start the test instance → run the relevant browser acceptance scripts. There are two lanes and the model is the boundary: the `tests/cdp-*.mjs` scripts need **no** model — the two that do need a live agent turn are driven by `tests/external/`'s local mock — while `e2e/` is the only lane a real model drives.
 
 ## Structure & responsibilities
 
@@ -29,15 +29,16 @@ Standard verification after any code change: typecheck → test → lint → bui
 
 - The test instance uses a dedicated profile and port (currently 3190); never touch the long-running development service (3080).
 - Under `tests/`: `*.spec.ts` are vitest unit tests; `cdp-*.mjs` are headless-Chrome acceptance scripts (fresh user-data-dir each run; scripts clean up leftover tabs on start); `verify-*.mjs` are manual real-service checks outside `pnpm test`.
-- CDP endpoint: the scripts default to `http://127.0.0.1:9222` but are **not** tied to it — `DSH_CDP_PORT=19333 node tests/cdp-refresh.mjs` (or `DSH_CDP_HTTP=http://127.0.0.1:19333`, which wins when both are set) points them at your own headless Chrome. Resolution lives in `tests/lib/cdp-endpoint.mjs`. Never reuse a port that an unrelated browser already holds, and never end someone else's browser process.
+- CDP endpoint: the scripts default to `http://127.0.0.1:9222` but are **not** tied to it — `DSH_CDP_PORT=19333 node tests/cdp-combo.mjs` (or `DSH_CDP_HTTP=http://127.0.0.1:19333`, which wins when both are set) points them at your own headless Chrome. Resolution lives in `tests/lib/cdp-endpoint.mjs`. Never reuse a port that an unrelated browser already holds, and never end someone else's browser process.
 - `tests/lib/` is **tracked** test infrastructure (the CDP/RPC helpers: `cdp-endpoint.mjs`, `cdp-chrome-launch.mjs`, `web-session.mjs`), imported by every `cdp-*.mjs`; keep it in version control so a clean clone can re-run the acceptance scripts.
 - CDP scripts need a browser session: export `DSH_WEB_TOKEN` with the `?token=` value from the URL `dsh web` prints (`tests/lib/web-session.mjs` exchanges it for the auth cookie and serves `authenticatedUrl()` / `rpc()`).
 - Acceptance screenshots are not committed (`tests/screenshots/` is ignored).
-- `tests/external/` is the external-dependency lane: a local mock LLM provider plus an orchestrator that serves the two agent-driven CDP scripts from it instead of the developer's real provider account — start there (`tests/external/README.md`) before re-running `cdp-llm-run.mjs` / `cdp-pwsh.mjs` on a machine whose model quota is exhausted.
+- `tests/external/` is the external-dependency lane: a local mock LLM provider plus an orchestrator for the two agent-driven CDP scripts. That is the **only** supported way to run `cdp-llm-run.mjs` / `cdp-pwsh.mjs` — never point them at the developer's real provider account, and do not treat a green `cdp-llm-run` as proof that the turn ran (assert the turn actually started). Only the socket is mocked: the real provider adapter, streaming parser, tool loop and token accounting all still execute (`tests/external/README.md`).
+- Acceptance cases must arrange their own preconditions — seed state over the plugin's RPC, or inject `DSH_SESSION_WORKSPACE` — instead of assuming the developer's profile happens to hold a pinned workspace or a live provider. A case that only passes on one particular machine is a defect in the case, not an environment limitation.
 
 ## e2e lane (`e2e/`)
 
-A second, higher-level acceptance lane on [tester-army/e2e](https://github.com/tester-army/e2e) (`e2e` + `@e2e-dev/web`, in root `devDependencies`). Where the `cdp-*.mjs` scripts assert by hand and report only an exit code, this lane lets an **agent** find and operate the controls and checks the result with ordinary locators — so a renamed button does not break a test, and a passing run is backed by a video.
+The model-driven acceptance lane on [tester-army/e2e](https://github.com/tester-army/e2e) (`e2e` + `@e2e-dev/web`, in root `devDependencies`) — the only lane that needs a real model. Where the `cdp-*.mjs` scripts assert by hand and report only an exit code, this lane lets an **agent** find and operate the controls and checks the result with ordinary locators — so a renamed button does not break a test, and a passing run is backed by a video.
 
 ```bash
 pnpm test:e2e                              # build, then run the whole suite
