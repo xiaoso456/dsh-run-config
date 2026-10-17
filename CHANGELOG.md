@@ -5,13 +5,31 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-> 本插件每个版本只适配一条 dsh 线，范围写死在 `peerDependencies`：**0.2.3 → dsh 0.2.0-rc.2**（与 0.2.2 同线）、0.2.2 → dsh 0.2.0-rc.2、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
+> 本插件每个版本只适配一条 dsh 线。兼容范围以顶层 `engines.dsh` 为准（官方门闸优先读它，并**忽略** dsh peer 范围）；`peerDependencies` 保留同一范围供 npm 解析。已发布版本的对应关系：**0.2.4 → dsh 0.2.1 线**（`engines.dsh` = `>=0.2.1-0 <0.3.0-0`，盖整条 0.2.x；不再兼容 0.2.0-rc.2 线）、**0.2.3 → dsh 0.2.0-rc.2**（与 0.2.2 同线）、0.2.2 → dsh 0.2.0-rc.2、0.2.1 → dsh 0.2.0-rc.1（精确版本；自 0.2.1 起不再兼容 0.1.7 线）、0.2.0 → dsh 0.1.7 线、0.1.5 → dsh 0.1.5 线、0.1.4-rc.1 → dsh 0.1.2 线、0.1.0–0.1.3 → dsh 0.1.1 线。dsh 升级后请配套升级插件。
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-17
+
 ### Added
 
-- **e2e 验收通道（`e2e/`）**：引入 [tester-army/e2e](https://github.com/tester-army/e2e)（`e2e` + `@e2e-dev/web`，装在根 `devDependencies`），补上 `cdp-*.mjs` 之外的第二条验收线——由**模型驱动界面**、用普通定位器断言结果，因此改个按钮文案不会让用例失效，且每次运行都留下操作视频。全部收敛在 `e2e/` 一个目录（config / tests / `.e2e/` 产物 / 私有 DSH_HOME），不进入插件自身的 `tsconfig`、`biome`、`vitest` 作用域。跑法 `pnpm test:e2e`；模型与密钥填 `e2e/.env`（已忽略）。现有 12 条用例：登录 setup、头部控件注册、应用壳渲染、hero 只列 LLM 配置（确定性）、组内拖拽排序且跨组拖拽被忽略（确定性）、会话头部隐藏其他工作区的配置（确定性）、模型开弹窗、模型建命令配置、模型运行命令任务并断言 shell 真的执行、模型复制与删除配置、模型重命名已有配置、模型运行 LLM 配置并断言 prompt 落入输入框。详见 `AGENTS.md` 的「e2e lane」一节
+- **e2e 验收通道（`e2e/`）**：引入 [tester-army/e2e](https://github.com/tester-army/e2e)（`e2e` + `@e2e-dev/web`，装在根 `devDependencies`），补上一条**模型驱动**的验收通道。它与 `cdp-*.mjs` 的分工是「需不需要模型」：cdp 侧不需要模型（需要 agent 轮次的那两条走 `tests/external/` 的本地 mock），只有这条通道用真模型——由**模型驱动界面**、用普通定位器断言结果，因此改个按钮文案不会让用例失效，且每次运行都留下操作视频。全部收敛在 `e2e/` 一个目录（config / tests / `.e2e/` 产物 / 私有 DSH_HOME），不进入插件自身的 `tsconfig`、`biome`、`vitest` 作用域。跑法 `pnpm test:e2e`；模型与密钥填 `e2e/.env`（已忽略）。现有 12 条用例：登录 setup、头部控件注册、应用壳渲染、hero 只列 LLM 配置（确定性）、组内拖拽排序且跨组拖拽被忽略（确定性）、会话头部隐藏其他工作区的配置（确定性）、模型开弹窗、模型建命令配置、模型运行命令任务并断言 shell 真的执行、模型复制与删除配置、模型重命名已有配置、模型运行 LLM 配置并断言 prompt 落入输入框。详见 `AGENTS.md` 的「e2e lane」一节
+
+### Changed
+
+- **兼容性声明改用官方推荐的顶层 `engines.dsh`，并把范围放宽到整条 0.2.x 线**：新增 `"engines": { "dsh": ">=0.2.1-0 <0.3.0-0" }`（与原有的 `engines.node` 并列），13 条 dsh `peerDependencies` 同步放宽到**同一范围**，与 `dsh-bash-plus` 的写法一致；`devDependencies` 仍精确钉 `0.2.1-rc.1`（与它一致）。官方 `dsh-app-boot` 的门闸优先读 `engines.dsh`，**一旦存在就单独决定结果、忽略所有 `@deepseek-ai/dsh*` peer 范围**（`lib/index.js` 的 `unmetRequirements`），只有缺该字段时才回退 peer 规则；市场索引也要求每个版本声明有效的 `engines.dsh`。实测（直接调官方 `evaluatePluginCompatibility`，与本机 `dsh-bash-plus` 并排跑同一张表）：`0.2.1-rc.1` / `0.2.1` / `0.2.2` / `0.2.9` / `0.2.10` 通过，`0.2.0-rc.2`、`0.3.0-alpha.1`、`0.3.0`、`0.4.1` 拒绝（上界写 `<0.3.0-0`，连 0.3.0 的预发布也挡住），两个插件逐格一致；已发布的 0.2.3（无该字段、13 条精确 peer）在 `0.2.1-rc.1` 上被拒 13 项。
+
+### Removed
+
+- **三个已被 e2e 取代的 CDP 验收脚本**：删掉 `tests/cdp-reorder.mjs`、`tests/cdp-workspace-select.mjs`、`tests/cdp-refresh.mjs`，它们覆盖的三件事已分别在 `e2e/tests/08-reorder-within-group.e2e.ts`（同组拖拽改序 + 跨组拖拽保持原序）、`09-workspace-scope.e2e.ts`（绑定不存在工作区的任务既不进 picker 文案也不进菜单；打开选择器时重新拉取）、`07-hero-lists-llm-only.e2e.ts`（加载后经 RPC 建任务再打开即见新行）里有等价断言，且 e2e 侧用的是真实 DragEvent 分轮派发 + 结算等待，更稳。**其余 10 个 CDP 脚本一律保留**：6 个只被部分覆盖——控件几何/间距/tooltip/`consoleErrors===0`、描述清空成 `''` 必须原样透传、hero 当前工作区作用域任务的可见性、`send` 分支（清空输入并真的起轮）、PowerShell 执行器身份，这些在 e2e 侧都没有等价物；3 个完全没有对应用例——同 tick 连点只发 1 个 `tasks/run`、保存提示独立 ≥1800ms 窗口、hero 添加工作区行的真实鼠标路径；另有 `cdp-shot.mjs` 零断言，是截图工具而非用例。
+
+### 说明
+
+- 真机验收（2026-10-17，dsh `0.2.1-rc.1`，独立 profile + 端口 3190，headless Chrome）：13 个 CDP 脚本 **12 过 / 0 失败 / 1 跳过**，25 张截图逐张打开看过，**无插件缺陷类失败**。唯一红灯 `cdp-pwsh` 是脚本自身前提（它假定会话工作区等于仓库根，只在 `tests/external` 的固定工作区车道成立）；跳过的是 `cdp-hero-llm`（该 profile 的 hero 工作区没有任务钉住路径，脚本守卫按设计 SKIP）。
+- e2e 通道（同日）：12 个用例 **全过 / 0 失败 / 0 跳过**，包括接手那三个被删 CDP 脚本的 `08-reorder-within-group`（47 步，组内拖拽改序 + 跨组拖拽不动）、`09-workspace-scope`、`07-hero-lists-llm-only`。
+- 版本门闸实测（直接调 `dsh-app-boot` 的 `evaluatePluginCompatibility`）：运行时 `0.2.1-rc.1` 通过；`0.2.0-rc.2` 被拒——这正是本次改用 `engines.dsh` 的原因：已发布的 0.2.3（无该字段、13 条精确 peer）在 0.2.1 宿主上被拒 13 项。
+- 自测：`tsc --noEmit` 0 诊断 · **139 单测全过**（21 文件）· `biome check` 0 error · `tsdown` 0（`lib/index.mjs` 40503 B / `lib/client.js` 120044 B）· `build:types` 0（31 个 `.d.ts`）。
+- 打包自检：`npm pack` 47 个文件，包内 `lib/**`、`cordis.patch.yml`、`locale/*`、`assets/*` 与工作区**逐字节一致**，无测试文件混入。
 
 ## [0.2.3] - 2026-10-09
 
