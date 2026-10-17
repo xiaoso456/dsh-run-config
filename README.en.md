@@ -88,7 +88,7 @@ profile's `pnpm-workspace.yaml`.
 
 - **Node.js** ≥ 22 (per the `engines` field in `package.json`)
 - **Git Bash** (recommended): recommended shell environment on Windows
-- Built for the DeepSeek Harness `dsh` **0.2.0-rc.2** (this package's `peerDependencies` pins `0.2.0-rc.2` exactly; dsh's plugin version gate compares with `includePrerelease` semantics, so **this plugin's row is disabled whenever the runtime version differs**). On the dsh 0.2.0-rc.1 line install `@xiaoso/dsh-run-config@0.2.1`, on the 0.1.7 line install `0.2.0`, on the 0.1.5 line install `0.1.5`
+- Built for the DeepSeek Harness `dsh` **0.2.1 line** (`>=0.2.1-0 <0.3.0-0`, declared in the top-level `engines.dsh` of `package.json`; dsh's plugin version gate **reads that field first** and evaluates it with `includePrerelease` semantics, so this plugin's row is disabled when the range does not match; the same range under `peerDependencies` is for npm resolution only). On the dsh **0.2.0-rc.2** line install `@xiaoso/dsh-run-config@0.2.3`, on 0.2.0-rc.1 install `0.2.1`, on the 0.1.7 line install `0.2.0`, on the 0.1.5 line install `0.1.5`
 
 ## Build
 
